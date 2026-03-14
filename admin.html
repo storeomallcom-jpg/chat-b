@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>B-Chat — Admin Panel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root { --accent:#6366f1; }
+  * { box-sizing:border-box;margin:0;padding:0; }
+  body { font-family:'DM Sans',sans-serif;background:#07080f;color:#e2e8f0;min-height:100vh; }
+  h1,h2,h3 { font-family:'Syne',sans-serif; }
+
+  /* Mesh */
+  .mesh { position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 70% 50% at 0% 0%,rgba(99,102,241,.2) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%,rgba(168,85,247,.15) 0%,transparent 60%),#07080f; }
+
+  /* Layout */
+  .wrap { position:relative;z-index:10;max-width:1280px;margin:0 auto;padding:2rem 1.5rem; }
+
+  /* Top bar */
+  .topbar {
+    position:sticky;top:0;z-index:100;
+    padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;
+    background:rgba(7,8,15,.9);backdrop-filter:blur(20px);
+    border-bottom:1px solid rgba(255,255,255,.06);
+  }
+  .topbar-logo { font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;
+    background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent; }
+  .admin-badge { display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .75rem;border-radius:999px;
+    background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);
+    color:#fca5a5;font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase; }
+
+  /* Glass cards */
+  .glass { background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+    border-radius:20px;backdrop-filter:blur(12px); }
+  .glass-dark { background:rgba(15,23,42,.7);border:1px solid rgba(255,255,255,.07);
+    border-radius:14px;backdrop-filter:blur(10px); }
+
+  /* Stat cards */
+  .stat-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem; }
+  .stat-card { padding:1.5rem;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07); }
+  .stat-card .s-icon { font-size:1.5rem;margin-bottom:.5rem; }
+  .stat-card .s-label { font-size:.75rem;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem; }
+  .stat-card .s-val { font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:#f1f5f9; }
+
+  /* Table */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%;border-collapse:collapse;min-width:600px; }
+  thead tr { border-bottom:1px solid rgba(255,255,255,.08); }
+  thead th { padding:.75rem 1rem;text-align:left;font-size:.78rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:#475569; }
+  tbody tr { border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s; }
+  tbody tr:hover { background:rgba(255,255,255,.03); }
+  tbody td { padding:.9rem 1rem;font-size:.875rem;color:#94a3b8;vertical-align:middle; }
+  .badge-active { display:inline-block;padding:.2rem .7rem;border-radius:999px;font-size:.75rem;font-weight:600;
+    background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#6ee7b7; }
+  .badge-expired { display:inline-block;padding:.2rem .7rem;border-radius:999px;font-size:.75rem;font-weight:600;
+    background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:#fca5a5; }
+  .badge-used { display:inline-block;padding:.2rem .7rem;border-radius:999px;font-size:.75rem;font-weight:600;
+    background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#a5b4fc; }
+  .badge-unused { display:inline-block;padding:.2rem .7rem;border-radius:999px;font-size:.75rem;font-weight:600;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#94a3b8; }
+
+  /* Buttons */
+  .btn-primary { padding:.65rem 1.4rem;border-radius:10px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;font-weight:600;font-size:.875rem;
+    font-family:'DM Sans',sans-serif;transition:all .2s;box-shadow:0 0 20px rgba(99,102,241,.25); }
+  .btn-primary:hover { transform:translateY(-1px);box-shadow:0 0 30px rgba(99,102,241,.5); }
+  .btn-outline { padding:.55rem 1rem;border-radius:8px;cursor:pointer;background:rgba(99,102,241,.1);
+    border:1px solid rgba(99,102,241,.3);color:#a5b4fc;font-weight:600;font-size:.8rem;
+    font-family:'DM Sans',sans-serif;transition:all .2s; }
+  .btn-outline:hover { background:rgba(99,102,241,.2); }
+  .btn-danger { padding:.55rem 1rem;border-radius:8px;cursor:pointer;background:rgba(239,68,68,.1);
+    border:1px solid rgba(239,68,68,.25);color:#fca5a5;font-weight:600;font-size:.8rem;
+    font-family:'DM Sans',sans-serif;transition:all .2s; }
+  .btn-danger:hover { background:rgba(239,68,68,.2); }
+
+  /* Form */
+  .form-input { width:100%;padding:.7rem 1rem;border-radius:10px;outline:none;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    color:#f1f5f9;font-size:.9rem;font-family:'DM Sans',sans-serif;transition:border-color .2s; }
+  .form-input:focus { border-color:#6366f1;background:rgba(99,102,241,.08); }
+  .form-label { display:block;font-size:.85rem;color:#94a3b8;margin-bottom:.4rem;font-weight:500; }
+
+  /* Modal */
+  .modal-overlay { position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+    display:none;align-items:center;justify-content:center;padding:1rem; }
+  .modal-overlay.active { display:flex; }
+  .modal-box { width:100%;max-width:480px;border-radius:20px;background:rgba(15,23,42,.98);
+    border:1px solid rgba(255,255,255,.1);box-shadow:0 40px 100px rgba(0,0,0,.8);overflow:hidden;
+    animation:modalIn .3s ease both; }
+  @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+  .modal-header { padding:1.5rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;
+    align-items:center;justify-content:space-between; }
+  .modal-header h2 { font-size:1.2rem;font-weight:700;color:#f1f5f9; }
+  .modal-body { padding:1.5rem; }
+  .modal-close { width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);
+    border:none;cursor:pointer;color:#94a3b8;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s; }
+  .modal-close:hover { background:rgba(255,255,255,.15);color:#fff; }
+
+  /* Generated code box */
+  .code-box { background:rgba(0,0,0,.4);border:1px solid rgba(99,102,241,.3);border-radius:12px;
+    padding:1.25rem;text-align:center;margin:1rem 0; }
+  .code-box .code-val { font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;letter-spacing:.1em;
+    color:#a5b4fc;word-break:break-all; }
+
+  /* Search */
+  .search-box { position:relative; }
+  .search-box input { padding-left:2.5rem; }
+  .search-box .search-icon { position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:#475569;font-size:1rem; }
+
+  /* Tabs */
+  .admin-tabs { display:flex;gap:.25rem;margin-bottom:1.5rem; }
+  .admin-tab { padding:.55rem 1.2rem;border-radius:10px;cursor:pointer;font-size:.875rem;font-weight:600;
+    color:#64748b;border:1px solid transparent;transition:all .2s; }
+  .admin-tab:hover { color:#94a3b8;background:rgba(255,255,255,.04); }
+  .admin-tab.active { background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.3);color:#a5b4fc; }
+
+  /* Toast */
+  .toaster { position:fixed;top:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem; }
+  .toast { padding:.75rem 1.25rem;border-radius:12px;font-size:.875rem;font-weight:500;
+    background:rgba(16,185,129,.9);color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);animation:toastIn .3s ease; }
+  .toast.error { background:rgba(239,68,68,.9); }
+  @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+  /* Access denied overlay */
+  .access-denied { position:fixed;inset:0;z-index:500;background:#07080f;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem; }
+
+  /* Loading */
+  .loading { text-align:center;padding:3rem;color:#475569;font-size:.95rem; }
+
+  ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="mesh"></div>
+<div class="toaster" id="toaster"></div>
+
+<!-- Access Denied (shown if not admin) -->
+<div class="access-denied" id="accessDenied" style="display:none;">
+  <div style="font-size:4rem;">🔐</div>
+  <h2 style="font-size:1.5rem;color:#f1f5f9;">Access Restricted</h2>
+  <p style="color:#64748b;">This panel is for administrators only.</p>
+  <button onclick="window.location.href='dashboard.html'" class="btn-primary">Go to Dashboard</button>
+</div>
+
+<!-- Main admin UI (hidden until auth check passes) -->
+<div id="adminUI" style="display:none;">
+
+<!-- Top bar -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <span class="topbar-logo">B-Chat</span>
+    <span class="admin-badge">🛡️ Admin</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:.75rem;">
+    <select style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#94a3b8;border-radius:8px;padding:.3rem .6rem;font-size:.8rem;cursor:pointer;outline:none;" onchange="setLang(this.value)" id="langSelect">
+      <option value="en">🇬🇧 EN</option>
+      <option value="ar">🇸🇦 AR</option>
+      <option value="fr">🇫🇷 FR</option>
+      <option value="es">🇪🇸 ES</option>
+      <option value="de">🇩🇪 DE</option>
+      <option value="sv">🇸🇪 SV</option>
+    </select>
+    <button onclick="window.location.href='dashboard.html'" class="btn-outline" style="font-size:.8rem;">← Dashboard</button>
+    <button onclick="doLogout()" class="btn-danger" style="font-size:.8rem;" data-i18n="logout">Logout</button>
+  </div>
+</div>
+
+<!-- Content -->
+<div class="wrap">
+
+  <!-- Stats -->
+  <div class="stat-grid" id="statsGrid">
+    <div class="stat-card"><div class="s-icon">👥</div><div class="s-label" data-i18n="total_merchants">Total Merchants</div><div class="s-val" id="statTotal">—</div></div>
+    <div class="stat-card"><div class="s-icon">✅</div><div class="s-label" data-i18n="active_subs">Active Subscriptions</div><div class="s-val" id="statActive">—</div></div>
+    <div class="stat-card"><div class="s-icon">💬</div><div class="s-label">Total Messages Available</div><div class="s-val" id="statMessages">—</div></div>
+    <div class="stat-card"><div class="s-icon">🎟️</div><div class="s-label">Codes Generated</div><div class="s-val" id="statCodes">—</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="admin-tabs">
+    <div class="admin-tab active" id="atab-merchants" onclick="switchAdminTab('merchants')">👥 Merchants</div>
+    <div class="admin-tab" id="atab-codes" onclick="switchAdminTab('codes')">🎟️ Activation Codes</div>
+  </div>
+
+  <!-- ── MERCHANTS TAB ──────────────────────────────── -->
+  <div id="admin-merchants">
+    <div class="glass" style="padding:1.5rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem;">
+        <h2 style="font-size:1rem;font-weight:700;color:#f1f5f9;">👥 All Merchants</h2>
+        <div class="search-box" style="width:260px;">
+          <span class="search-icon">🔍</span>
+          <input class="form-input" type="text" id="merchantSearch" placeholder="Search by name or email..." oninput="filterMerchants(this.value)" style="font-size:.85rem;padding:.6rem .6rem .6rem 2.5rem;"/>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Store</th>
+              <th>Email / ID</th>
+              <th>Balance</th>
+              <th>Sub Status</th>
+              <th>Expires</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="merchantsTable">
+            <tr><td colspan="7" class="loading">Loading merchants...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CODES TAB ──────────────────────────────────── -->
+  <div id="admin-codes" style="display:none;">
+    <div class="glass" style="padding:1.5rem;margin-bottom:1.5rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.75rem;">
+        <h2 style="font-size:1rem;font-weight:700;color:#f1f5f9;">🎟️ Activation Codes</h2>
+        <button class="btn-primary" onclick="openGenModal()" data-i18n="gen_code">Generate Code</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="code">Code</th>
+              <th data-i18n="amount">Messages</th>
+              <th data-i18n="used">Status</th>
+              <th>Used By</th>
+              <th data-i18n="created">Created</th>
+              <th data-i18n="actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="codesTable">
+            <tr><td colspan="6" class="loading">Loading codes...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+</div><!-- /adminUI -->
+
+<!-- ── GENERATE CODE MODAL ────────────────────────────────── -->
+<div class="modal-overlay" id="genModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>🎟️ Generate Activation Code</h2>
+      <button class="modal-close" onclick="closeGenModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:1.25rem;">
+        <label class="form-label">Message Amount</label>
+        <input class="form-input" type="number" id="codeAmount" value="1000" min="100" step="100"/>
+        <p style="font-size:.75rem;color:#475569;margin-top:.3rem;">Number of messages this code grants.</p>
+      </div>
+      <div style="margin-bottom:1.25rem;">
+        <label class="form-label">Number of Codes</label>
+        <input class="form-input" type="number" id="codeCount" value="1" min="1" max="50" step="1"/>
+      </div>
+      <button class="btn-primary" onclick="generateCodes()" id="genBtn" style="width:100%;">Generate</button>
+
+      <div id="generatedCodes" style="display:none;margin-top:1.25rem;">
+        <div style="font-size:.875rem;color:#94a3b8;margin-bottom:.75rem;font-weight:600;">Generated Codes:</div>
+        <div id="generatedCodesList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MERCHANT DETAIL MODAL ──────────────────────────────── -->
+<div class="modal-overlay" id="merchantModal">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-header">
+      <h2>Merchant Details</h2>
+      <button class="modal-close" onclick="closeMerchantModal()">✕</button>
+    </div>
+    <div class="modal-body" id="merchantModalBody">
+      <!-- filled dynamically -->
+    </div>
+  </div>
+</div>
+
+<script>
+const sb = createSupabase();
+let adminId   = null;
+let merchants = [];
+let codes     = [];
+
+// ── INIT ─────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const lang = getLang();
+  document.getElementById('langSelect').value = lang;
+  applyLang(lang);
+  document.getElementById('langSelect').addEventListener('change', function(){ setLang(this.value); applyLang(this.value); });
+
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  adminId = session.user.id;
+
+  // Check admin
+  const { data: prof } = await sb.from('profiles').select('is_admin').eq('id', adminId).single();
+  if (!prof || !prof.is_admin) {
+    document.getElementById('accessDenied').style.display = 'flex';
+    return;
+  }
+
+  document.getElementById('adminUI').style.display = 'block';
+  loadMerchants();
+  loadStats();
+});
+
+// ── SWITCH TAB ────────────────────────────────────────────
+function switchAdminTab(name) {
+  document.getElementById('admin-merchants').style.display = name === 'merchants' ? 'block' : 'none';
+  document.getElementById('admin-codes').style.display     = name === 'codes'     ? 'block' : 'none';
+  document.getElementById('atab-merchants').classList.toggle('active', name === 'merchants');
+  document.getElementById('atab-codes').classList.toggle('active',     name === 'codes');
+  if (name === 'codes') loadCodes();
+}
+
+// ── LOAD STATS ────────────────────────────────────────────
+async function loadStats() {
+  const { data: profs } = await sb.from('profiles').select('message_balance, sub_end_date, is_admin');
+  const { count: codeCount } = await sb.from('activation_codes').select('*', { count:'exact', head:true });
+
+  if (profs) {
+    const now = new Date();
+    const nonAdmins = profs.filter(p => !p.is_admin);
+    const active    = nonAdmins.filter(p => new Date(p.sub_end_date) > now && p.message_balance > 0).length;
+    const totalMsgs = nonAdmins.reduce((s,p) => s + (p.message_balance||0), 0);
+
+    document.getElementById('statTotal').textContent    = nonAdmins.length;
+    document.getElementById('statActive').textContent   = active;
+    document.getElementById('statMessages').textContent = totalMsgs.toLocaleString();
+    document.getElementById('statCodes').textContent    = codeCount || 0;
+  }
+}
+
+// ── LOAD MERCHANTS ────────────────────────────────────────
+async function loadMerchants() {
+  const { data, error } = await sb.from('profiles').select('*').order('created_at', { ascending:false });
+  if (error) { showToast('Failed to load merchants', true); return; }
+  merchants = (data || []).filter(p => !p.is_admin);
+  renderMerchants(merchants);
+}
+
+function renderMerchants(list) {
+  const tbody = document.getElementById('merchantsTable');
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading">No merchants found.</td></tr>'; return; }
+  const now = new Date();
+  tbody.innerHTML = list.map(m => {
+    const isActive = new Date(m.sub_end_date) > now && m.message_balance > 0;
+    const expDate  = new Date(m.sub_end_date).toLocaleDateString();
+    const joined   = new Date(m.created_at).toLocaleDateString();
+    const pct = Math.min(100, Math.round((m.message_balance/1000)*100));
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          ${m.logo_url ? `<img src="${m.logo_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.1);" onerror="this.style.display='none'"/>` : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;">${(m.store_name||'?')[0].toUpperCase()}</div>`}
+          <div>
+            <div style="color:#f1f5f9;font-weight:600;font-size:.875rem;">${escHtml(m.store_name||'Unnamed')}</div>
+            <div style="font-size:.75rem;color:#475569;">${m.bot_name||'B-Chat Bot'}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:.8rem;color:#64748b;font-family:monospace;">${m.id.slice(0,8)}...</td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:.3rem;">
+          <span style="color:#a5b4fc;font-weight:600;">${(m.message_balance||0).toLocaleString()}</span>
+          <div style="width:80px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#6366f1,#a855f7);border-radius:2px;"></div>
+          </div>
+        </div>
+      </td>
+      <td><span class="${isActive ? 'badge-active' : 'badge-expired'}">${isActive ? '● Active' : '● Expired'}</span></td>
+      <td style="font-size:.8rem;">${expDate}</td>
+      <td style="font-size:.8rem;">${joined}</td>
+      <td>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+          <button class="btn-outline" style="padding:.35rem .7rem;font-size:.75rem;" onclick="viewMerchant('${m.id}')">View</button>
+          <button class="btn-outline" style="padding:.35rem .7rem;font-size:.75rem;" onclick="extendSub('${m.id}')">+30d</button>
+          <button class="btn-outline" style="padding:.35rem .7rem;font-size:.75rem;" onclick="addMessages('${m.id}')">+1k msgs</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterMerchants(query) {
+  const q = query.toLowerCase();
+  const filtered = merchants.filter(m =>
+    (m.store_name||'').toLowerCase().includes(q) ||
+    (m.id||'').toLowerCase().includes(q) ||
+    (m.bot_name||'').toLowerCase().includes(q)
+  );
+  renderMerchants(filtered);
+}
+
+// ── EXTEND SUBSCRIPTION ───────────────────────────────────
+async function extendSub(id) {
+  const m = merchants.find(m => m.id === id);
+  if (!m) return;
+  const now = new Date();
+  const base = new Date(m.sub_end_date) > now ? new Date(m.sub_end_date) : now;
+  base.setDate(base.getDate() + 30);
+  const { error } = await sb.from('profiles').update({ sub_end_date: base.toISOString() }).eq('id', id);
+  if (error) { showToast('Failed to extend', true); return; }
+  m.sub_end_date = base.toISOString();
+  showToast(`Extended by 30 days for ${m.store_name}`);
+  renderMerchants(merchants);
+}
+
+// ── ADD MESSAGES ──────────────────────────────────────────
+async function addMessages(id) {
+  const m = merchants.find(m => m.id === id);
+  if (!m) return;
+  const newBal = (m.message_balance || 0) + 1000;
+  const { error } = await sb.from('profiles').update({ message_balance: newBal }).eq('id', id);
+  if (error) { showToast('Failed to add messages', true); return; }
+  m.message_balance = newBal;
+  showToast(`+1,000 messages added for ${m.store_name}`);
+  renderMerchants(merchants);
+  loadStats();
+}
+
+// ── VIEW MERCHANT ─────────────────────────────────────────
+function viewMerchant(id) {
+  const m = merchants.find(m => m.id === id);
+  if (!m) return;
+  const now = new Date();
+  const isActive = new Date(m.sub_end_date) > now && m.message_balance > 0;
+  const chatUrl = `${BCHAT_CONFIG.BASE_URL}/chat.html?id=${m.id}`;
+
+  document.getElementById('merchantModalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+      <div class="glass-dark" style="display:flex;align-items:center;gap:1rem;padding:1rem;">
+        ${m.logo_url ? `<img src="${m.logo_url}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;"/>` :
+          `<div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;">${(m.store_name||'?')[0].toUpperCase()}</div>`}
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;color:#f1f5f9;">${escHtml(m.store_name||'Unnamed')}</div>
+          <div style="font-size:.85rem;color:#64748b;">${escHtml(m.bot_name||'B-Chat Bot')}</div>
+          <span class="${isActive ? 'badge-active' : 'badge-expired'}" style="margin-top:.3rem;display:inline-block;">${isActive ? 'Active' : 'Expired'}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+        <div class="glass-dark" style="padding:.85rem;">
+          <div style="font-size:.75rem;color:#475569;text-transform:uppercase;letter-spacing:.04em;">Messages Left</div>
+          <div style="font-size:1.5rem;font-weight:800;font-family:'Syne',sans-serif;color:#a5b4fc;">${(m.message_balance||0).toLocaleString()}</div>
+        </div>
+        <div class="glass-dark" style="padding:.85rem;">
+          <div style="font-size:.75rem;color:#475569;text-transform:uppercase;letter-spacing:.04em;">Expires</div>
+          <div style="font-size:1rem;font-weight:600;color:#6ee7b7;">${new Date(m.sub_end_date).toLocaleDateString()}</div>
+        </div>
+      </div>
+      ${m.bio ? `<div class="glass-dark" style="padding:.85rem;"><div style="font-size:.75rem;color:#475569;margin-bottom:.3rem;">Bio</div><div style="font-size:.875rem;color:#94a3b8;">${escHtml(m.bio)}</div></div>` : ''}
+      <div class="glass-dark" style="padding:.85rem;">
+        <div style="font-size:.75rem;color:#475569;margin-bottom:.4rem;">Chat Link</div>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <span style="font-size:.78rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${chatUrl}</span>
+          <button class="btn-outline" style="padding:.3rem .7rem;font-size:.75rem;" onclick="navigator.clipboard.writeText('${chatUrl}');showToast('Copied!')">Copy</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+        <button class="btn-outline" onclick="extendSub('${m.id}');closeMerchantModal()">+30 Days</button>
+        <button class="btn-outline" onclick="addMessages('${m.id}');closeMerchantModal()">+1,000 Messages</button>
+      </div>
+    </div>`;
+  document.getElementById('merchantModal').classList.add('active');
+}
+function closeMerchantModal() { document.getElementById('merchantModal').classList.remove('active'); }
+
+// ── LOAD CODES ────────────────────────────────────────────
+async function loadCodes() {
+  const { data, error } = await sb.from('activation_codes').select('*').order('created_at', { ascending:false });
+  if (error) { showToast('Failed to load codes', true); return; }
+  codes = data || [];
+  renderCodes(codes);
+}
+
+function renderCodes(list) {
+  const tbody = document.getElementById('codesTable');
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading">No codes yet. Generate some!</td></tr>'; return; }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          <code style="font-size:.875rem;letter-spacing:.05em;color:#a5b4fc;background:rgba(99,102,241,.1);padding:.2rem .5rem;border-radius:6px;">${c.code}</code>
+        </div>
+      </td>
+      <td><span style="color:#f1f5f9;font-weight:600;">${(c.message_amount||1000).toLocaleString()}</span></td>
+      <td><span class="${c.is_used ? 'badge-used' : 'badge-unused'}">${c.is_used ? '● Used' : '● Available'}</span></td>
+      <td style="font-size:.8rem;color:#64748b;">${c.used_by ? c.used_by.slice(0,8)+'...' : '—'}</td>
+      <td style="font-size:.8rem;color:#64748b;">${new Date(c.created_at).toLocaleDateString()}</td>
+      <td>
+        <div style="display:flex;gap:.4rem;">
+          <button class="btn-outline" style="padding:.3rem .6rem;font-size:.75rem;" onclick="navigator.clipboard.writeText('${c.code}');showToast('Code copied!')">Copy</button>
+          ${!c.is_used ? `<button class="btn-danger" style="padding:.3rem .6rem;font-size:.75rem;" onclick="deleteCode('${c.id}')">Delete</button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── GENERATE CODES MODAL ──────────────────────────────────
+function openGenModal() { document.getElementById('genModal').classList.add('active'); document.getElementById('generatedCodes').style.display='none'; }
+function closeGenModal() { document.getElementById('genModal').classList.remove('active'); loadCodes(); }
+
+async function generateCodes() {
+  const amount = parseInt(document.getElementById('codeAmount').value) || 1000;
+  const count  = Math.min(50, parseInt(document.getElementById('codeCount').value) || 1);
+  const btn = document.getElementById('genBtn');
+  btn.textContent = 'Generating...'; btn.disabled = true;
+
+  const newCodes = [];
+  for (let i = 0; i < count; i++) {
+    newCodes.push({
+      code:           generateRandomCode(),
+      message_amount: amount,
+      is_used:        false,
+      created_by:     adminId,
+    });
+  }
+
+  const { data, error } = await sb.from('activation_codes').insert(newCodes).select();
+  btn.textContent = 'Generate'; btn.disabled = false;
+
+  if (error) { showToast('Failed to generate codes', true); return; }
+
+  // Display generated codes
+  const list = document.getElementById('generatedCodesList');
+  list.innerHTML = (data || newCodes).map(c => `
+    <div class="code-box" style="margin-bottom:.75rem;">
+      <div class="code-val">${c.code}</div>
+      <div style="font-size:.75rem;color:#64748b;margin-top:.25rem;">${c.message_amount.toLocaleString()} messages</div>
+      <button class="btn-outline" style="margin-top:.6rem;font-size:.78rem;padding:.35rem .8rem;" onclick="navigator.clipboard.writeText('${c.code}');showToast('Copied!')">Copy Code</button>
+    </div>
+  `).join('');
+  document.getElementById('generatedCodes').style.display = 'block';
+  showToast(`Generated ${count} code(s) successfully!`);
+  loadStats();
+}
+
+function generateRandomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random()*chars.length)]).join('').replace(/(.{4})/g,'$1-').slice(0,-1);
+}
+
+// ── DELETE CODE ───────────────────────────────────────────
+async function deleteCode(id) {
+  if (!confirm('Delete this activation code?')) return;
+  await sb.from('activation_codes').delete().eq('id', id);
+  codes = codes.filter(c => c.id !== id);
+  renderCodes(codes);
+  showToast('Code deleted');
+  loadStats();
+}
+
+// ── LOGOUT ────────────────────────────────────────────────
+async function doLogout() {
+  await sb.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg, isError=false) {
+  const el = document.createElement('div');
+  el.className = `toast${isError ? ' error' : ''}`;
+  el.textContent = msg;
+  document.getElementById('toaster').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close modals on overlay click
+document.getElementById('genModal').addEventListener('click', function(e){ if(e.target===this) closeGenModal(); });
+document.getElementById('merchantModal').addEventListener('click', function(e){ if(e.target===this) closeMerchantModal(); });
+</script>
+</body>
+</html>
