@@ -3,475 +3,599 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>B-Chat — AI Sales Assistant</title>
+<title>B-Chat — Let AI Sell For You</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://api.fontshare.com"/>
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <style>
-  :root { --accent: #6366f1; --accent2: #a855f7; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: #07080f; color: #e2e8f0; overflow-x: hidden; }
-  h1,h2,h3,.display { font-family: 'Syne', sans-serif; }
+:root {
+  --bg:#05060e; --bg2:#0b0d1a; --surface:rgba(255,255,255,.04);
+  --surface2:rgba(255,255,255,.07); --border:rgba(255,255,255,.08);
+  --border2:rgba(255,255,255,.14); --indigo:#5b5ef4; --violet:#9333ea;
+  --indigo-dim:rgba(91,94,244,.18); --violet-dim:rgba(147,51,234,.15);
+  --text:#f0f0f5; --text-muted:#6b7280; --text-sub:#9ca3af; --radius:20px;
+  --grad:linear-gradient(135deg,#5b5ef4,#9333ea);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.6}
+h1,h2,h3,.display{font-family:'Clash Display',sans-serif}
+a{text-decoration:none;color:inherit}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.026;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:200px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#1e2035;border-radius:3px}
+.mesh-layer{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 55% at -5% 5%,rgba(91,94,244,.22) 0%,transparent 60%),
+  radial-gradient(ellipse 55% 45% at 105% 90%,rgba(147,51,234,.18) 0%,transparent 60%),
+  radial-gradient(ellipse 80% 60% at 50% 50%,rgba(5,6,14,1) 0%,var(--bg) 100%)}
+.grid-lines{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.04;
+  background-image:linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px);
+  background-size:72px 72px;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 0%,transparent 100%)}
+.z1{position:relative;z-index:1}
+.container{max-width:1180px;margin:0 auto;padding:0 1.5rem}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 
-  /* ── MESH BACKGROUND ───────────────────────── */
-  .mesh-bg {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(ellipse 80% 60% at 20% -10%, rgba(99,102,241,.25) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 80% 110%, rgba(168,85,247,.2) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 80% at 50% 50%, rgba(15,23,42,1) 0%, #07080f 100%);
-  }
-  .noise-overlay {
-    position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .04;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
+/* NAV */
+.navbar{position:fixed;top:0;left:0;right:0;z-index:100;transition:background .4s,border-color .4s,backdrop-filter .4s;border-bottom:1px solid transparent}
+.navbar.scrolled{background:rgba(5,6,14,.88);backdrop-filter:blur(24px) saturate(1.4);border-color:var(--border)}
+.navbar-inner{max-width:1180px;margin:0 auto;padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:-.02em;display:flex;align-items:center;gap:.45rem}
+.nav-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--grad);display:inline-block;box-shadow:0 0 10px rgba(91,94,244,.8);animation:pulseDot 2s infinite}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 rgba(91,94,244,.7)}50%{box-shadow:0 0 0 6px rgba(91,94,244,0)}}
+.nav-links{display:flex;align-items:center;gap:1.5rem}
+.nav-link{font-size:.875rem;font-weight:500;color:var(--text-muted);transition:color .2s;cursor:pointer}
+.nav-link:hover{color:var(--text)}
+.nav-actions{display:flex;align-items:center;gap:.65rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;font-weight:600;cursor:pointer;transition:all .22s;font-family:'Instrument Sans',sans-serif;white-space:nowrap;border:none}
+.btn-ghost{padding:.5rem 1.1rem;border-radius:10px;font-size:.875rem;background:transparent;border:1px solid var(--border2);color:var(--text-sub)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-primary{padding:.55rem 1.3rem;border-radius:10px;font-size:.875rem;background:var(--grad);color:#fff;box-shadow:0 0 28px rgba(91,94,244,.35)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 0 44px rgba(91,94,244,.55)}
+.btn-hero{padding:.9rem 2.2rem;border-radius:14px;font-size:1rem;background:var(--grad);color:#fff;box-shadow:0 0 50px rgba(91,94,244,.4);position:relative;overflow:hidden}
+.btn-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);opacity:0;transition:opacity .25s}
+.btn-hero:hover{transform:translateY(-2px);box-shadow:0 0 70px rgba(91,94,244,.6)}
+.btn-hero:hover::after{opacity:1}
+.btn-hero-ghost{padding:.9rem 2.2rem;border-radius:14px;font-size:1rem;background:var(--surface);border:1px solid var(--border2);color:var(--text-sub)}
+.btn-hero-ghost:hover{background:var(--surface2);color:var(--text)}
+.lang-pill{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+.lang-opt{padding:.42rem .75rem;font-size:.78rem;font-weight:600;color:var(--text-muted);cursor:pointer;transition:all .18s}
+.lang-opt.active{background:var(--indigo-dim);color:#a5b4fc;box-shadow:inset 0 0 0 1px rgba(91,94,244,.3)}
+.lang-opt:hover:not(.active){color:var(--text)}
+.hamburger{display:none;background:none;border:none;cursor:pointer;color:var(--text-sub);padding:.4rem}
 
-  /* ── NAV ────────────────────────────────────── */
-  nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    padding: 1rem 2rem;
-    display: flex; align-items: center; justify-content: space-between;
-    backdrop-filter: blur(20px);
-    background: rgba(7,8,15,.7);
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    transition: all .3s;
-  }
-  .nav-logo { font-family:'Syne',sans-serif; font-weight:800; font-size:1.4rem; color:#fff;
-    background: linear-gradient(135deg,#6366f1,#a855f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  .nav-btn {
-    padding: .5rem 1.2rem; border-radius: 8px; font-size:.875rem; font-weight:600; cursor:pointer;
-    transition: all .2s; border: 1px solid rgba(99,102,241,.5); color:#a5b4fc;
-    background: rgba(99,102,241,.1);
-  }
-  .nav-btn:hover { background: rgba(99,102,241,.25); border-color:#6366f1; }
-  .nav-btn.primary { background:#6366f1; color:#fff; border-color:#6366f1; }
-  .nav-btn.primary:hover { background:#5254cc; }
+/* HERO */
+.hero-section{min-height:100vh;display:flex;align-items:center;padding:7rem 0 5rem;position:relative;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .85rem .3rem .5rem;
+  background:var(--indigo-dim);border:1px solid rgba(91,94,244,.3);border-radius:999px;
+  font-size:.78rem;font-weight:600;color:#a5b4fc;letter-spacing:.02em;margin-bottom:1.4rem}
+.hero-badge .badge-dot{width:6px;height:6px;border-radius:50%;background:#5b5ef4;display:inline-block;animation:pulseDot 2s infinite}
+.hero-title{font-size:clamp(2.4rem,5.5vw,4.2rem);line-height:1.06;letter-spacing:-.035em;font-weight:700;color:var(--text);margin-bottom:1.3rem}
+.hero-sub{font-size:1.05rem;line-height:1.7;color:var(--text-sub);max-width:500px;margin-bottom:2.2rem}
+.hero-actions{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap}
+.hero-proof{display:flex;align-items:center;gap:.75rem;margin-top:2.2rem}
+.proof-avatars{display:flex}
+.proof-avatars span{width:28px;height:28px;border-radius:50%;border:2px solid var(--bg);margin-left:-8px;
+  display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;background:var(--grad)}
+.proof-avatars span:first-child{margin-left:0}
+.proof-text{font-size:.82rem;color:var(--text-muted)}
+.proof-text strong{color:var(--text-sub)}
 
-  /* ── HERO ───────────────────────────────────── */
-  .hero {
-    position: relative; z-index: 10; min-height: 100vh;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 7rem 1.5rem 4rem;
-  }
-  .badge {
-    display: inline-flex; align-items: center; gap:.5rem;
-    padding: .35rem 1rem; border-radius: 999px;
-    border: 1px solid rgba(99,102,241,.4);
-    background: rgba(99,102,241,.12); color:#a5b4fc;
-    font-size:.8rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
-    margin-bottom: 1.5rem;
-    animation: fadeUp .6s ease both;
-  }
-  .hero h1 {
-    font-size: clamp(2.5rem, 7vw, 5.5rem);
-    font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
-    color: #f1f5f9;
-    animation: fadeUp .7s .1s ease both;
-  }
-  .hero h1 .hi {
-    background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .hero-sub {
-    margin: 1.5rem auto 0; max-width: 600px;
-    font-size: 1.15rem; line-height: 1.7; color: #94a3b8; font-weight:400;
-    animation: fadeUp .7s .2s ease both;
-  }
-  .hero-btns {
-    display: flex; gap: 1rem; margin-top: 2.5rem; flex-wrap: wrap; justify-content: center;
-    animation: fadeUp .7s .3s ease both;
-  }
-  .btn-primary {
-    padding: .9rem 2.2rem; border-radius: 12px; font-weight:700; font-size:1rem; cursor:pointer;
-    background: linear-gradient(135deg, #6366f1, #a855f7);
-    color:#fff; border:none; transition: all .25s; box-shadow: 0 0 40px rgba(99,102,241,.4);
-    font-family:'DM Sans',sans-serif;
-  }
-  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 0 60px rgba(99,102,241,.6); }
-  .btn-ghost {
-    padding: .9rem 2.2rem; border-radius: 12px; font-weight:600; font-size:1rem; cursor:pointer;
-    background: rgba(255,255,255,.06); color:#cbd5e1; border:1px solid rgba(255,255,255,.12);
-    transition: all .25s; font-family:'DM Sans',sans-serif;
-  }
-  .btn-ghost:hover { background: rgba(255,255,255,.1); color:#fff; }
+/* PHONE MOCKUP */
+.phone-float{animation:floatY 5s ease-in-out infinite}
+@keyframes floatY{0%,100%{transform:translateY(0px) rotate(-1deg)}50%{transform:translateY(-18px) rotate(1deg)}}
+.phone-shadow{position:absolute;bottom:-40px;left:50%;transform:translateX(-50%);width:70%;height:40px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(91,94,244,.4) 0%,transparent 70%);animation:shadowPulse 5s ease-in-out infinite}
+@keyframes shadowPulse{0%,100%{opacity:.4;transform:translateX(-50%) scaleX(1)}50%{opacity:.2;transform:translateX(-50%) scaleX(.8)}}
+.phone-wrap{position:relative;width:280px;margin:0 auto}
+.phone-shell{border-radius:38px;padding:10px;
+  background:linear-gradient(145deg,rgba(91,94,244,.35),rgba(147,51,234,.2),rgba(255,255,255,.05));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 40px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.15)}
+.phone-screen{border-radius:30px;overflow:hidden;background:#0d1021;border:1px solid rgba(255,255,255,.05)}
+.p-topbar{background:linear-gradient(135deg,#5b5ef4,#9333ea);padding:.85rem 1rem;display:flex;align-items:center;gap:.6rem}
+.p-topbar-av{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.p-topbar-info{flex:1}
+.p-topbar-name{font-size:.8rem;font-weight:700;color:#fff}
+.p-topbar-stat{font-size:.65rem;color:rgba(255,255,255,.65)}
+.p-msgs{padding:.65rem .75rem;display:flex;flex-direction:column;gap:.55rem}
+.p-bubble{padding:.55rem .8rem;border-radius:13px;font-size:.72rem;line-height:1.5}
+.p-bubble.bot{background:rgba(91,94,244,.2);color:#c7d2fe;border-bottom-left-radius:3px}
+.p-bubble.user{background:#1e2235;color:#94a3b8;border-bottom-right-radius:3px;margin-left:auto;max-width:80%}
+.p-typing{display:flex;gap:3px;align-items:center;padding:.45rem .8rem}
+.p-typing span{width:5px;height:5px;border-radius:50%;background:#4f46e5;animation:typBounce 1.2s infinite ease}
+.p-typing span:nth-child(2){animation-delay:.15s}.p-typing span:nth-child(3){animation-delay:.3s}
+@keyframes typBounce{0%,80%,100%{transform:scale(.7);opacity:.4}40%{transform:scale(1);opacity:1}}
+.p-input{padding:.6rem .75rem;border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:.5rem}
+.p-inp-fake{flex:1;height:28px;border-radius:14px;background:rgba(255,255,255,.06);font-size:.65rem;color:#475569;display:flex;align-items:center;padding:0 .7rem}
+.p-send{width:28px;height:28px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff}
+.float-card{position:absolute;background:rgba(11,13,26,.92);border-radius:14px;padding:.75rem 1rem;
+  box-shadow:0 20px 50px rgba(0,0,0,.5);white-space:nowrap;backdrop-filter:blur(12px)}
+.float-card-label{font-size:.65rem;color:var(--text-muted);margin-bottom:.2rem}
+.float-card-val{font-size:.85rem;font-weight:600;color:var(--text)}
 
-  /* ── PHONE MOCKUP ───────────────────────────── */
-  .phone-wrap {
-    margin: 4rem auto 0; position: relative; width: 300px;
-    animation: floatAnim 4s ease-in-out infinite, fadeUp .8s .4s ease both;
-  }
-  .phone-outer {
-    border-radius: 36px; padding: 10px;
-    background: linear-gradient(135deg, rgba(99,102,241,.3), rgba(168,85,247,.2));
-    border: 1px solid rgba(255,255,255,.12);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 60px rgba(99,102,241,.15);
-  }
-  .phone-inner {
-    border-radius: 28px; overflow: hidden;
-    background: #0f172a;
-    border: 1px solid rgba(255,255,255,.06);
-  }
-  .phone-header {
-    background: linear-gradient(135deg,#6366f1,#a855f7);
-    padding: 1rem 1.2rem; display:flex; align-items:center; gap:.75rem;
-  }
-  .phone-avatar {
-    width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.25);
-    display:flex;align-items:center;justify-content:center;font-size:1.2rem;
-  }
-  .phone-bubble {
-    margin: .75rem 1rem; padding: .65rem 1rem; border-radius: 14px; font-size:.8rem; line-height:1.5;
-  }
-  .phone-bubble.bot { background:rgba(99,102,241,.2); color:#c7d2fe; border-bottom-left-radius:4px; align-self:flex-start; }
-  .phone-bubble.user { background:rgba(30,41,59,1); color:#94a3b8; border-bottom-right-radius:4px; margin-left:auto; }
-  .phone-msgs { display:flex;flex-direction:column; padding:.5rem 0; }
+/* TICKER */
+.ticker-wrap{overflow:hidden;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(91,94,244,.04);padding:.75rem 0}
+.ticker-track{display:flex;animation:tickerScroll 28s linear infinite;width:max-content}
+.ticker-track:hover{animation-play-state:paused}
+.ticker-item{padding:0 2.5rem;display:flex;align-items:center;gap:.6rem;font-size:.82rem;color:var(--text-muted);white-space:nowrap;border-right:1px solid var(--border)}
+.ticker-item strong{color:var(--text-sub)}
+@keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 
-  /* ── FEATURES ───────────────────────────────── */
-  section { position:relative; z-index:10; }
-  .feat-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 1.5rem;
-    max-width: 1200px; margin: 3rem auto 0; padding: 0 1.5rem;
-  }
-  .feat-card {
-    padding: 2rem; border-radius: 20px;
-    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
-    backdrop-filter: blur(10px);
-    transition: all .3s;
-  }
-  .feat-card:hover { background:rgba(99,102,241,.08); border-color:rgba(99,102,241,.3); transform:translateY(-4px); }
-  .feat-icon {
-    width:52px;height:52px;border-radius:14px;
-    background:linear-gradient(135deg,rgba(99,102,241,.3),rgba(168,85,247,.2));
-    display:flex;align-items:center;justify-content:center;font-size:1.5rem;
-    margin-bottom:1.2rem; border:1px solid rgba(99,102,241,.2);
-  }
-  .feat-card h3 { font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-bottom:.5rem; }
-  .feat-card p { font-size:.9rem;color:#94a3b8;line-height:1.6; }
+/* SECTIONS */
+section{position:relative;z-index:1}
+.section-label{display:inline-flex;align-items:center;gap:.5rem;padding:.28rem .85rem;border-radius:999px;
+  background:var(--indigo-dim);border:1px solid rgba(91,94,244,.25);
+  font-size:.75rem;font-weight:700;color:#818cf8;letter-spacing:.06em;text-transform:uppercase;margin-bottom:1.1rem}
+.section-title{font-size:clamp(1.9rem,3.5vw,2.9rem);font-weight:700;letter-spacing:-.03em;line-height:1.15;color:var(--text);margin-bottom:.85rem}
+.section-sub{font-size:1rem;color:var(--text-muted);line-height:1.7;max-width:520px}
+.sec-pad{padding:5.5rem 0}
+.grad-divider{height:1px;width:100%;background:linear-gradient(90deg,transparent,rgba(91,94,244,.4),rgba(147,51,234,.3),transparent)}
 
-  /* ── STEPS ──────────────────────────────────── */
-  .steps-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2rem;
-    max-width:900px;margin:3rem auto 0;padding:0 1.5rem; }
-  .step-card { text-align:center; }
-  .step-num {
-    width:56px;height:56px;border-radius:50%;margin:0 auto 1.2rem;
-    background:linear-gradient(135deg,#6366f1,#a855f7);
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:#fff;
-    box-shadow:0 0 30px rgba(99,102,241,.5);
-  }
-  .step-card h3 { font-weight:700;color:#f1f5f9;margin-bottom:.5rem; }
-  .step-card p { font-size:.9rem;color:#94a3b8;line-height:1.6; }
+/* PAIN */
+.pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-top:3rem}
+.pain-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;display:flex;gap:1rem;align-items:flex-start}
+.pain-icon{width:40px;height:40px;border-radius:10px;flex-shrink:0;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;justify-content:center;color:#f87171}
+.pain-card h4{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.3rem}
+.pain-card p{font-size:.82rem;color:var(--text-muted);line-height:1.6}
 
-  /* ── PRICING ────────────────────────────────── */
-  .price-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;
-    max-width:760px;margin:3rem auto 0;padding:0 1.5rem; }
-  .price-card {
-    padding:2.5rem 2rem;border-radius:24px;text-align:center;
-    border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);
-  }
-  .price-card.featured {
-    background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(168,85,247,.1));
-    border-color:rgba(99,102,241,.4);
-    box-shadow:0 0 60px rgba(99,102,241,.2);
-    transform:scale(1.03);
-  }
-  .price-card .price-label { font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-    color:#a5b4fc;margin-bottom:.75rem; }
-  .price-card .amount { font-family:'Syne',sans-serif;font-size:3.5rem;font-weight:800;color:#f1f5f9; }
-  .price-card .period { font-size:.95rem;color:#64748b;margin-bottom:1.5rem; }
-  .price-feature { display:flex;align-items:center;gap:.7rem;margin:.6rem 0;font-size:.9rem;color:#94a3b8; }
-  .price-feature .check { color:#6366f1;font-size:1rem; }
+/* STEPS */
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:3.5rem;position:relative}
+.steps-grid::before{content:'';position:absolute;top:44px;left:calc(16% + 24px);right:calc(16% + 24px);height:1px;
+  background:linear-gradient(90deg,transparent,rgba(91,94,244,.4),rgba(147,51,234,.4),transparent)}
+.step-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:2rem 1.5rem;text-align:center;transition:all .3s;position:relative}
+.step-card:hover{background:var(--surface2);border-color:rgba(91,94,244,.3);transform:translateY(-5px);box-shadow:0 20px 60px rgba(91,94,244,.1)}
+.step-num{width:52px;height:52px;border-radius:50%;background:var(--grad);margin:0 auto 1.2rem;display:flex;align-items:center;justify-content:center;
+  font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.1rem;color:#fff;box-shadow:0 0 30px rgba(91,94,244,.45);position:relative;z-index:1}
+.step-icon-wrap{width:44px;height:44px;border-radius:12px;margin:0 auto 1rem;background:var(--indigo-dim);border:1px solid rgba(91,94,244,.25);display:flex;align-items:center;justify-content:center;color:#818cf8}
+.step-card h3{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.5rem}
+.step-card p{font-size:.875rem;color:var(--text-muted);line-height:1.65}
 
-  /* ── SECTION HEADERS ────────────────────────── */
-  .section-header { text-align:center;padding:5rem 1.5rem 0; }
-  .section-header h2 { font-size:clamp(1.8rem,4vw,3rem);font-weight:800;color:#f1f5f9; }
-  .section-header p { font-size:1.05rem;color:#64748b;margin-top:.75rem; }
+/* FEATURES BENTO */
+.feat-bento{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-top:3.5rem}
+.feat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.75rem;transition:all .3s;position:relative;overflow:hidden}
+.feat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(91,94,244,.5),transparent);opacity:0;transition:opacity .3s}
+.feat-card:hover{background:var(--surface2);border-color:rgba(91,94,244,.25);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.feat-card:hover::before{opacity:1}
+.feat-card.wide{grid-column:span 2}
+.feat-icon{width:46px;height:46px;border-radius:13px;margin-bottom:1.1rem;background:var(--indigo-dim);border:1px solid rgba(91,94,244,.22);display:flex;align-items:center;justify-content:center;color:#818cf8}
+.feat-card h3{font-size:.975rem;font-weight:700;color:var(--text);margin-bottom:.45rem}
+.feat-card p{font-size:.85rem;color:var(--text-muted);line-height:1.65}
 
-  /* ── FOOTER ─────────────────────────────────── */
-  footer {
-    position:relative;z-index:10;text-align:center;
-    padding:3rem 1.5rem;border-top:1px solid rgba(255,255,255,.06);
-    color:#475569;font-size:.875rem;
-  }
+/* STATS */
+.stat-row{display:flex;align-items:center;justify-content:center;gap:3rem;flex-wrap:wrap;padding:3rem 0}
+.stat-item{text-align:center}
+.stat-val{font-family:'Clash Display',sans-serif;font-size:2.2rem;font-weight:700}
+.stat-lbl{font-size:.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-top:.15rem}
 
-  /* ── AUTH MODAL ─────────────────────────────── */
-  .modal-overlay {
-    position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);
-    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;
-    padding:1rem;
-  }
-  .modal-overlay.active { display:flex; }
-  .modal-box {
-    width:100%;max-width:440px;border-radius:24px;overflow:hidden;
-    background:rgba(15,23,42,.95);border:1px solid rgba(255,255,255,.1);
-    box-shadow:0 40px 100px rgba(0,0,0,.8);
-    animation: modalIn .3s ease both;
-  }
-  .modal-header { padding:1.75rem 2rem 1rem;border-bottom:1px solid rgba(255,255,255,.08); }
-  .modal-header h2 { font-size:1.5rem;font-weight:800;color:#f1f5f9; }
-  .modal-tabs { display:flex;gap:0;margin-top:1rem; }
-  .modal-tab {
-    flex:1;padding:.6rem;text-align:center;font-weight:600;font-size:.9rem;
-    color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;
-  }
-  .modal-tab.active { color:#a5b4fc;border-color:#6366f1; }
-  .modal-body { padding:1.5rem 2rem 2rem; }
-  .form-group { margin-bottom:1.2rem; }
-  .form-group label { display:block;font-size:.85rem;color:#94a3b8;margin-bottom:.4rem;font-weight:500; }
-  .form-group input {
-    width:100%;padding:.75rem 1rem;border-radius:10px;outline:none;
-    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-    color:#f1f5f9;font-size:.95rem;font-family:'DM Sans',sans-serif;
-    transition:border-color .2s;
-  }
-  .form-group input:focus { border-color:#6366f1;background:rgba(99,102,241,.08); }
-  .form-submit {
-    width:100%;padding:.85rem;border-radius:12px;border:none;cursor:pointer;
-    background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;
-    font-weight:700;font-size:1rem;font-family:'DM Sans',sans-serif;
-    transition:all .25s;box-shadow:0 0 30px rgba(99,102,241,.3);
-  }
-  .form-submit:hover { transform:translateY(-1px);box-shadow:0 0 50px rgba(99,102,241,.5); }
-  .modal-close {
-    position:absolute;top:1.5rem;right:1.5rem;cursor:pointer;
-    width:32px;height:32px;display:flex;align-items:center;justify-content:center;
-    border-radius:50%;background:rgba(255,255,255,.08);color:#94a3b8;
-    transition:all .2s;border:none;font-size:1.1rem;
-  }
-  .modal-close:hover { background:rgba(255,255,255,.15);color:#fff; }
-  .auth-switch { text-align:center;margin-top:1rem;font-size:.875rem;color:#64748b; }
-  .auth-switch a { color:#a5b4fc;cursor:pointer;text-decoration:none; }
-  .auth-switch a:hover { color:#818cf8; }
-  .form-error { background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);
-    color:#fca5a5;padding:.75rem 1rem;border-radius:8px;font-size:.85rem;margin-bottom:1rem;display:none; }
+/* PRICING */
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:3.5rem;max-width:780px;margin-left:auto;margin-right:auto}
+.price-card{border-radius:24px;padding:2.25rem 2rem;border:1px solid var(--border);background:var(--surface);position:relative;overflow:hidden;transition:all .3s}
+.price-card:hover{box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.price-card.featured{background:linear-gradient(145deg,rgba(91,94,244,.12),rgba(147,51,234,.08));border-color:rgba(91,94,244,.38);box-shadow:0 0 0 1px rgba(91,94,244,.15),0 30px 70px rgba(91,94,244,.12)}
+.price-card.featured:hover{box-shadow:0 0 0 1px rgba(91,94,244,.3),0 40px 90px rgba(91,94,244,.2)}
+.price-glow{position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(147,51,234,.3),transparent 70%);pointer-events:none}
+.price-label{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.65rem}
+.price-amount{font-family:'Clash Display',sans-serif;font-size:3.2rem;font-weight:700;color:var(--text);line-height:1}
+.price-period{font-size:.9rem;color:var(--text-muted);margin-top:.3rem;margin-bottom:1.6rem}
+.price-divider{height:1px;background:var(--border);margin:1.25rem 0}
+.price-feat{display:flex;align-items:center;gap:.65rem;padding:.4rem 0;font-size:.875rem;color:var(--text-sub)}
+.price-feat .pf-icon{width:18px;height:18px;border-radius:50%;flex-shrink:0;background:rgba(91,94,244,.2);border:1px solid rgba(91,94,244,.3);display:flex;align-items:center;justify-content:center;color:#818cf8}
 
-  /* ── LANG SWITCHER ──────────────────────────── */
-  .lang-select {
-    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-    color:#94a3b8;border-radius:8px;padding:.3rem .6rem;font-size:.8rem;
-    cursor:pointer;outline:none;
-  }
-  .lang-select:focus { border-color:#6366f1; }
+/* CTA */
+.cta-section{background:linear-gradient(135deg,rgba(91,94,244,.12),rgba(147,51,234,.1));border:1px solid rgba(91,94,244,.2);border-radius:32px;padding:4rem 3rem;text-align:center;position:relative;overflow:hidden;margin:0 auto}
+.cta-section::before{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(91,94,244,.25) 0%,transparent 70%);pointer-events:none}
+.cta-section h2{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:700;letter-spacing:-.03em;margin-bottom:1rem}
+.cta-section p{font-size:1rem;color:var(--text-muted);max-width:480px;margin:0 auto 2.2rem;line-height:1.7}
 
-  /* ── ANIMATIONS ─────────────────────────────── */
-  @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes floatAnim { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-  @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+/* FOOTER */
+.footer{border-top:1px solid var(--border);padding:2.5rem 1.5rem;text-align:center;color:var(--text-muted);font-size:.85rem}
+.footer-logo{font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:.5rem}
 
-  .typing-dot { display:inline-block;width:6px;height:6px;border-radius:50%;background:#a5b4fc;
-    animation:pulse 1s infinite; margin:0 1px; }
-  .typing-dot:nth-child(2){animation-delay:.2s}
-  .typing-dot:nth-child(3){animation-delay:.4s}
+/* AUTH MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-box{width:100%;max-width:430px;background:rgba(11,13,26,.98);border:1px solid var(--border2);border-radius:24px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.04);animation:modalPop .28s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes modalPop{from{opacity:0;transform:scale(.92) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{padding:1.6rem 1.75rem 1rem;border-bottom:1px solid var(--border)}
+.modal-header h2{font-size:1.35rem;font-weight:700;color:var(--text);margin-bottom:.25rem}
+.modal-header p{font-size:.85rem;color:var(--text-muted)}
+.modal-tabs{display:flex;margin-top:1rem}
+.m-tab{flex:1;padding:.55rem;text-align:center;font-weight:600;font-size:.875rem;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.m-tab.active{color:#a5b4fc;border-color:var(--indigo)}
+.modal-body{padding:1.4rem 1.75rem 1.75rem}
+.form-group{margin-bottom:1.1rem}
+.form-label{display:block;font-size:.82rem;color:var(--text-muted);margin-bottom:.4rem;font-weight:500}
+.form-input{width:100%;padding:.72rem 1rem;border-radius:11px;outline:none;background:rgba(255,255,255,.04);border:1px solid var(--border2);color:var(--text);font-size:.9rem;font-family:'Instrument Sans',sans-serif;transition:border-color .2s,background .2s}
+.form-input:focus{border-color:rgba(91,94,244,.6);background:rgba(91,94,244,.07)}
+.form-submit{width:100%;padding:.82rem;border-radius:12px;border:none;cursor:pointer;background:var(--grad);color:#fff;font-weight:700;font-size:.95rem;font-family:'Instrument Sans',sans-serif;box-shadow:0 0 30px rgba(91,94,244,.3);transition:all .25s}
+.form-submit:hover{transform:translateY(-1px);box-shadow:0 0 50px rgba(91,94,244,.5)}
+.form-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.form-error{padding:.7rem .9rem;border-radius:9px;font-size:.82rem;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5;display:none;margin-bottom:.9rem}
+.auth-switch{text-align:center;margin-top:.9rem;font-size:.82rem;color:var(--text-muted)}
+.auth-switch a{color:#a5b4fc;cursor:pointer}
+.auth-switch a:hover{text-decoration:underline}
+.modal-close{position:absolute;top:1.25rem;right:1.25rem;width:30px;height:30px;border-radius:50%;background:var(--surface2);border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{background:var(--border2);color:var(--text)}
 
-  /* ── STAT TICKER ────────────────────────────── */
-  .stat-bar {
-    display:flex;align-items:center;justify-content:center;gap:3rem;flex-wrap:wrap;
-    padding:1.5rem;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);
-    margin:4rem 0; position:relative;z-index:10;
-  }
-  .stat-item { text-align:center; }
-  .stat-item .val { font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;
-    background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent; }
-  .stat-item .lbl { font-size:.8rem;color:#475569;margin-top:.1rem;text-transform:uppercase;letter-spacing:.06em; }
+/* SCROLL REVEAL */
+.reveal{opacity:0;transform:translateY(32px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.reveal.revealed{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-36px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.reveal-right{opacity:0;transform:translateX(36px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.reveal-left.revealed,.reveal-right.revealed{opacity:1;transform:translate(0)}
+.reveal-scale{opacity:0;transform:scale(.94);transition:opacity .65s ease,transform .65s ease}
+.reveal-scale.revealed{opacity:1;transform:scale(1)}
+.d1{transition-delay:.05s}.d2{transition-delay:.13s}.d3{transition-delay:.21s}.d4{transition-delay:.29s}.d5{transition-delay:.37s}.d6{transition-delay:.45s}
 
-  /* Scrollbar */
-  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#07080f}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
+/* HERO INIT ANIMATIONS */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.h-anim-1{opacity:0;animation:fadeInUp .55s .08s ease both}
+.h-anim-2{opacity:0;animation:fadeInUp .6s  .18s ease both}
+.h-anim-3{opacity:0;animation:fadeInUp .6s  .30s ease both}
+.h-anim-4{opacity:0;animation:fadeInUp .6s  .42s ease both}
+.h-anim-5{opacity:0;animation:fadeInUp .6s  .54s ease both}
+.h-anim-6{opacity:0;animation:fadeInUp .75s .28s ease both}
+
+/* FLOAT CARDS */
+@keyframes floatCard1{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes floatCard2{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+
+/* RESPONSIVE */
+@media(max-width:1050px){.float-card{display:none!important}}
+@media(max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:3.5rem;text-align:center}
+  .hero-actions{justify-content:center}
+  .hero-proof{justify-content:center}
+  .hero-sub{margin-left:auto;margin-right:auto}
+  .feat-bento{grid-template-columns:1fr 1fr}
+  .feat-card.wide{grid-column:span 1}
+  .steps-grid::before{display:none}
+}
+@media(max-width:768px){
+  .nav-links{display:none}
+  .hamburger{display:flex}
+  .steps-grid{grid-template-columns:1fr}
+  .pain-grid{grid-template-columns:1fr}
+  .price-grid{grid-template-columns:1fr}
+  .cta-section{padding:3rem 1.5rem}
+}
+@media(max-width:560px){.feat-bento{grid-template-columns:1fr}}
+.mobile-menu{display:none}
+.mobile-menu.open{display:flex;flex-direction:column;gap:1.2rem;position:fixed;top:64px;left:0;right:0;bottom:0;background:rgba(5,6,14,.97);backdrop-filter:blur(20px);z-index:99;padding:2rem 1.5rem;border-top:1px solid var(--border);animation:menuSlide .25s ease both}
+@keyframes menuSlide{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.mobile-nav-link{font-size:1.1rem;font-weight:600;color:var(--text-sub);padding:.75rem 0;border-bottom:1px solid var(--border);cursor:pointer}
+[dir="rtl"] .proof-avatars span{margin-left:0;margin-right:-8px}
+[dir="rtl"] .proof-avatars span:first-child{margin-right:0}
+[dir="rtl"] .modal-close{right:auto;left:1.25rem}
 </style>
 </head>
 <body>
-<div class="mesh-bg"></div>
-<div class="noise-overlay"></div>
+<div class="mesh-layer"></div>
+<div class="grid-lines"></div>
 
-<!-- ── NAV ────────────────────────────────────────────── -->
-<nav id="navbar">
-  <span class="nav-logo">B-Chat</span>
-  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-    <select class="lang-select" onchange="setLang(this.value)" id="langSelect">
-      <option value="en">🇬🇧 EN</option>
-      <option value="ar">🇸🇦 AR</option>
-      <option value="fr">🇫🇷 FR</option>
-      <option value="es">🇪🇸 ES</option>
-      <option value="de">🇩🇪 DE</option>
-      <option value="sv">🇸🇪 SV</option>
-    </select>
-    <button class="nav-btn" onclick="openModal('login')" data-i18n="login">Login</button>
-    <button class="nav-btn primary" onclick="openModal('register')" data-i18n="cta_trial">Start Free Trial</button>
+<!-- ════════════════════════════════════════════════ NAVBAR -->
+<nav class="navbar z1" id="navbar">
+  <div class="navbar-inner">
+    <a href="#" class="nav-logo"><span class="dot"></span>B-Chat</a>
+    <div class="nav-links">
+      <span class="nav-link" onclick="scrollTo('how')" id="nl-how">How it works</span>
+      <span class="nav-link" onclick="scrollTo('features')" id="nl-features">Features</span>
+      <span class="nav-link" onclick="scrollTo('pricing')" id="nl-pricing">Pricing</span>
+    </div>
+    <div class="nav-actions">
+      <div class="lang-pill">
+        <div class="lang-opt active" id="lo-en" onclick="switchLang('en')">EN</div>
+        <div class="lang-opt" id="lo-ar" onclick="switchLang('ar')">AR</div>
+      </div>
+      <button class="btn btn-ghost" onclick="openModal('login')" id="nav-login">Login</button>
+      <button class="btn btn-primary" onclick="openModal('register')" id="nav-cta">Start Free</button>
+      <button class="hamburger" onclick="toggleMenu()" aria-label="Menu">
+        <i data-lucide="menu" width="22" height="22"></i>
+      </button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mobileMenu">
+    <span class="mobile-nav-link" onclick="scrollTo('how');toggleMenu()" id="mnl-how">How it works</span>
+    <span class="mobile-nav-link" onclick="scrollTo('features');toggleMenu()" id="mnl-feat">Features</span>
+    <span class="mobile-nav-link" onclick="scrollTo('pricing');toggleMenu()" id="mnl-price">Pricing</span>
+    <button class="btn btn-ghost" style="width:100%;padding:.8rem;font-size:.95rem;justify-content:center;" onclick="openModal('login');toggleMenu()" id="mnl-login">Login</button>
+    <button class="btn btn-hero" style="width:100%;padding:.8rem;font-size:.95rem;justify-content:center;" onclick="openModal('register');toggleMenu()" id="mnl-cta">Start Free Trial</button>
   </div>
 </nav>
 
-<!-- ── HERO ────────────────────────────────────────────── -->
-<section class="hero">
-  <div class="badge">⚡ <span>AI-Powered Sales · Now in 6 Languages</span></div>
-  <h1>
-    <span data-i18n="hero_title">Your AI Sales Assistant,</span><br>
-    <span class="hi" data-i18n="hero_highlight">Ready in Minutes.</span>
-  </h1>
-  <p class="hero-sub" data-i18n="hero_sub">
-    Build a personalized AI chatbot trained on your products. Convert visitors into buyers — 24/7, automatically.
-  </p>
-  <div class="hero-btns">
-    <button class="btn-primary" onclick="openModal('register')" data-i18n="cta_trial">Start 30-Day Free Trial</button>
-    <button class="btn-ghost" onclick="scrollToSection('features')" data-i18n="cta_demo">See Live Demo</button>
-  </div>
+<!-- ════════════════════════════════════════════════ HERO -->
+<section class="hero-section z1">
+  <div class="container">
+    <div class="hero-grid">
+      <!-- Copy -->
+      <div>
+        <div class="hero-badge h-anim-1">
+          <span class="badge-dot"></span>
+          <span id="badge-text">AI-Powered · Zero Code · 6 Languages</span>
+        </div>
+        <h1 class="hero-title h-anim-2">
+          <span id="h-line1">Stop losing sales.</span><br>
+          <span class="grad-text" id="h-line2">Let AI chat, convince,<br>and sell for you.</span>
+        </h1>
+        <p class="hero-sub h-anim-3" id="hero-sub-text">No developer needed. No technical setup. Train your bot in 5 minutes and get a shareable link that sells 24/7 — while you sleep.</p>
+        <div class="hero-actions h-anim-4">
+          <button class="btn btn-hero" onclick="openModal('register')">
+            <i data-lucide="zap" width="16" height="16"></i>
+            <span id="cta-main-text">Start Free — 30 Days</span>
+          </button>
+          <button class="btn btn-hero-ghost" onclick="scrollTo('how')">
+            <i data-lucide="play-circle" width="16" height="16"></i>
+            <span id="cta-demo-text">See How It Works</span>
+          </button>
+        </div>
+        <div class="hero-proof h-anim-5">
+          <div class="proof-avatars">
+            <span>MA</span><span>AZ</span><span>FZ</span><span>KL</span><span style="font-size:.55rem;">+</span>
+          </div>
+          <p class="proof-text"><strong id="proof-num">1,200+ merchants</strong> <span id="proof-rest">already selling with B-Chat</span></p>
+        </div>
+      </div>
 
-  <!-- Phone Mockup -->
-  <div class="phone-wrap">
-    <div class="phone-outer">
-      <div class="phone-inner">
-        <div class="phone-header">
-          <div class="phone-avatar">🤖</div>
-          <div>
-            <div style="font-weight:700;color:#fff;font-size:.9rem;">ShopBot AI</div>
-            <div style="font-size:.7rem;color:rgba(255,255,255,.7);">● Online</div>
+      <!-- Phone mockup -->
+      <div style="display:flex;justify-content:center;" class="h-anim-6">
+        <div style="position:relative;">
+          <div class="phone-float">
+            <div class="phone-wrap">
+              <div class="phone-shell">
+                <div class="phone-screen">
+                  <div class="p-topbar">
+                    <div class="p-topbar-av">🛍️</div>
+                    <div class="p-topbar-info">
+                      <div class="p-topbar-name" id="mock-name">Boutique Layla AI</div>
+                      <div class="p-topbar-stat">● Online · AI Assistant</div>
+                    </div>
+                  </div>
+                  <div class="p-msgs">
+                    <div class="p-bubble bot" id="mock-m1">👋 Merhba! Kif nqdr n3awnek?</div>
+                    <div class="p-bubble user" id="mock-m2">Bghit n3rf taman l'robe</div>
+                    <div class="p-bubble bot" id="mock-m3">L'robe 🌹 taman 299 DH. S/M/L. Bghiti t7jez?</div>
+                    <div class="p-typing"><span></span><span></span><span></span></div>
+                  </div>
+                  <div class="p-input">
+                    <div class="p-inp-fake" id="mock-ph">Kteb risala...</div>
+                    <div class="p-send">➤</div>
+                  </div>
+                </div>
+              </div>
+              <div class="phone-shadow"></div>
+            </div>
           </div>
-        </div>
-        <div class="phone-msgs">
-          <div class="phone-bubble bot">👋 Hi! How can I help you today?</div>
-          <div class="phone-bubble user">What's the price of the Pro plan?</div>
-          <div class="phone-bubble bot">The Pro plan is $19/month and includes 1,000 messages. Would you like to start a free trial? 🚀</div>
-          <div style="padding:.5rem 1rem;display:flex;gap:3px;align-items:center;">
-            <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+          <!-- Floating cards -->
+          <div class="float-card" style="top:10%;left:-118px;border:1px solid var(--border2);animation:floatCard1 4s 1s ease-in-out infinite;">
+            <div class="float-card-label">💬 New Conversation</div>
+            <div class="float-card-val">+3 orders today</div>
           </div>
-        </div>
-        <div style="padding:.75rem 1rem;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:.5rem;">
-          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:20px;padding:.5rem .9rem;font-size:.75rem;color:#475569;">Type a message...</div>
-          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;font-size:.8rem;">➤</div>
+          <div class="float-card" style="bottom:15%;right:-108px;border:1px solid rgba(91,94,244,.35);box-shadow:0 20px 50px rgba(91,94,244,.15);animation:floatCard2 4s 2s ease-in-out infinite;">
+            <div class="float-card-label" style="color:#818cf8;">⚡ Auto Reply</div>
+            <div class="float-card-val">0.8s response</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── STATS ────────────────────────────────────────────── -->
-<div class="stat-bar">
-  <div class="stat-item"><div class="val">10K+</div><div class="lbl">Conversations Daily</div></div>
-  <div class="stat-item"><div class="val">6</div><div class="lbl">Languages</div></div>
-  <div class="stat-item"><div class="val">99.9%</div><div class="lbl">Uptime</div></div>
-  <div class="stat-item"><div class="val">&lt;1s</div><div class="lbl">Response Time</div></div>
+<!-- Ticker -->
+<div class="ticker-wrap z1">
+  <div class="ticker-track" id="tickerTrack"></div>
 </div>
 
-<!-- ── FEATURES ─────────────────────────────────────────── -->
-<section id="features">
-  <div class="section-header">
-    <h2 data-i18n="feat_title">Everything You Need to Sell</h2>
-    <p>A complete AI sales platform, zero technical skills required.</p>
-  </div>
-  <div class="feat-grid">
-    <div class="feat-card"><div class="feat-icon">⚡</div><h3 data-i18n="feat1_title">Instant AI Setup</h3><p data-i18n="feat1_desc">Train your bot on your products in under 5 minutes. No coding required.</p></div>
-    <div class="feat-card"><div class="feat-icon">🌍</div><h3 data-i18n="feat2_title">Multilingual Support</h3><p data-i18n="feat2_desc">Responds fluently in Arabic, English, French, Spanish, German & Swedish.</p></div>
-    <div class="feat-card"><div class="feat-icon">🎨</div><h3 data-i18n="feat3_title">Full Customization</h3><p data-i18n="feat3_desc">Brand it with your logo, colors, and unique personality.</p></div>
-    <div class="feat-card"><div class="feat-icon">📊</div><h3 data-i18n="feat4_title">Smart Analytics</h3><p data-i18n="feat4_desc">Track conversations, message usage, and customer interactions.</p></div>
-    <div class="feat-card"><div class="feat-icon">🔗</div><h3 data-i18n="feat5_title">One-Link Deploy</h3><p data-i18n="feat5_desc">Get a shareable link. Add it to Instagram bio, website, or WhatsApp.</p></div>
-    <div class="feat-card"><div class="feat-icon">🔒</div><h3 data-i18n="feat6_title">Secure & Reliable</h3><p data-i18n="feat6_desc">Built on Supabase & Groq. Enterprise-grade uptime and security.</p></div>
-  </div>
-</section>
-
-<!-- ── HOW IT WORKS ─────────────────────────────────────── -->
-<section id="how">
-  <div class="section-header">
-    <h2>Up and Running in 3 Steps</h2>
-    <p>From signup to your first sale conversation in under 10 minutes.</p>
-  </div>
-  <div class="steps-grid">
-    <div class="step-card"><div class="step-num">1</div><h3>Sign Up Free</h3><p>Create your account and get instant access to your merchant dashboard with 1,000 free messages.</p></div>
-    <div class="step-card"><div class="step-num">2</div><h3>Train Your Bot</h3><p>Paste your product catalog, prices, and FAQs. Add custom behavior instructions for your brand voice.</p></div>
-    <div class="step-card"><div class="step-num">3</div><h3>Share Your Link</h3><p>Copy your unique chat link and share it everywhere. Your AI is live and selling for you 24/7.</p></div>
-  </div>
-</section>
-
-<!-- ── PRICING ──────────────────────────────────────────── -->
-<section id="pricing">
-  <div class="section-header">
-    <h2 data-i18n="price_title">Simple, Transparent Pricing</h2>
-    <p>Start free. Scale when you're ready.</p>
-  </div>
-  <div class="price-grid">
-    <!-- Free Trial -->
-    <div class="price-card">
-      <div class="price-label" data-i18n="plan_free">Free Trial</div>
-      <div class="amount" data-i18n="plan_free_price">$0</div>
-      <div class="period" data-i18n="plan_free_period">/ 30 days</div>
-      <div class="price-feature"><span class="check">✓</span><span data-i18n="plan_messages">1,000 messages included</span></div>
-      <div class="price-feature"><span class="check">✓</span><span>Custom branding</span></div>
-      <div class="price-feature"><span class="check">✓</span><span>6 languages</span></div>
-      <div class="price-feature"><span class="check">✓</span><span>Analytics dashboard</span></div>
-      <div style="margin-top:1.5rem;">
-        <button class="btn-ghost" style="width:100%;padding:.8rem;" onclick="openModal('register')" data-i18n="cta_trial">Start Free Trial</button>
-      </div>
+<!-- ════════════════════════════════════════════════ PAIN -->
+<section class="sec-pad z1" id="pain">
+  <div class="container">
+    <div class="reveal" style="text-align:center;max-width:600px;margin:0 auto;">
+      <div class="section-label" id="pain-label">The Problem</div>
+      <h2 class="section-title" id="pain-title">Your customers are leaving<br><span class="grad-text">without buying.</span></h2>
     </div>
-    <!-- Pro -->
-    <div class="price-card featured">
-      <div class="price-label" style="color:#c084fc;" data-i18n="plan_pro">Pro</div>
-      <div class="amount" data-i18n="plan_pro_price">$19</div>
-      <div class="period" data-i18n="plan_pro_period">/ month</div>
-      <div class="price-feature"><span class="check">✓</span><span data-i18n="plan_messages">1,000 messages included</span></div>
-      <div class="price-feature"><span class="check">✓</span><span data-i18n="plan_topup">Top-up packs available</span></div>
-      <div class="price-feature"><span class="check">✓</span><span>Priority support</span></div>
-      <div class="price-feature"><span class="check">✓</span><span>No expiry</span></div>
-      <div style="margin-top:1.5rem;">
-        <button class="btn-primary" style="width:100%;padding:.8rem;" onclick="openModal('register')" data-i18n="cta_trial">Get Started</button>
+    <div class="pain-grid">
+      <div class="pain-card reveal d1">
+        <div class="pain-icon"><i data-lucide="clock" width="18" height="18"></i></div>
+        <div><h4 id="pain1-t">You can't reply 24/7</h4><p id="pain1-d">Customers ask questions at midnight. You're asleep. They leave and buy from a competitor.</p></div>
+      </div>
+      <div class="pain-card reveal d2">
+        <div class="pain-icon"><i data-lucide="message-x" width="18" height="18"></i></div>
+        <div><h4 id="pain2-t">Repetitive questions kill time</h4><p id="pain2-d">Price? Size? Delivery? You answer the same 10 questions hundreds of times every week.</p></div>
+      </div>
+      <div class="pain-card reveal d3">
+        <div class="pain-icon"><i data-lucide="trending-down" width="18" height="18"></i></div>
+        <div><h4 id="pain3-t">Slow replies = lost sales</h4><p id="pain3-d">78% of customers buy from the first business that responds. Are you always first?</p></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── FOOTER ───────────────────────────────────────────── -->
-<footer style="margin-top:5rem;">
-  <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;
-    background:linear-gradient(135deg,#6366f1,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem;">
-    B-Chat
+<div class="z1 container"><div class="grad-divider"></div></div>
+
+<!-- ════════════════════════════════════════════════ HOW IT WORKS -->
+<section class="sec-pad z1" id="how">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <div class="section-label" id="how-label">3 Simple Steps</div>
+      <h2 class="section-title" id="how-title">From signup to selling<br><span class="grad-text">in under 10 minutes.</span></h2>
+      <p class="section-sub" style="margin:0 auto;" id="how-sub">No developer. No agency. No waiting. Just paste your products and go.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card reveal-scale d1">
+        <div class="step-num">01</div>
+        <div class="step-icon-wrap"><i data-lucide="brain" width="20" height="20"></i></div>
+        <h3 id="s1-t">Feed the AI</h3>
+        <p id="s1-d">Paste your product names, prices, and FAQs. Your AI reads everything and becomes an expert on your store instantly.</p>
+      </div>
+      <div class="step-card reveal-scale d2">
+        <div class="step-num">02</div>
+        <div class="step-icon-wrap"><i data-lucide="link-2" width="20" height="20"></i></div>
+        <h3 id="s2-t">Get Your Link</h3>
+        <p id="s2-d">Copy your unique chat link. Add it to your Instagram bio, WhatsApp, or website — one click to deploy.</p>
+      </div>
+      <div class="step-card reveal-scale d3">
+        <div class="step-num">03</div>
+        <div class="step-icon-wrap"><i data-lucide="trending-up" width="20" height="20"></i></div>
+        <h3 id="s3-t">Start Selling</h3>
+        <p id="s3-d">Your AI answers customers, handles objections, and drives purchases — 24 hours a day, automatically.</p>
+      </div>
+    </div>
   </div>
-  <p>AI Sales Assistant Platform · Built with ❤️ using Supabase & Groq</p>
-  <p style="margin-top:.5rem;font-size:.8rem;color:#334155;">© 2025 B-Chat. All rights reserved.</p>
+</section>
+
+<div class="z1 container"><div class="grad-divider"></div></div>
+
+<!-- ════════════════════════════════════════════════ FEATURES -->
+<section class="sec-pad z1" id="features">
+  <div class="container">
+    <div class="reveal" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1.5rem;">
+      <div>
+        <div class="section-label" id="feat-label">Features</div>
+        <h2 class="section-title" id="feat-title">Everything you need.<br><span class="grad-text">Nothing you don't.</span></h2>
+      </div>
+      <p class="section-sub" style="max-width:340px;" id="feat-sub">Built for merchants, not engineers. Every feature works out of the box.</p>
+    </div>
+    <div class="feat-bento">
+      <div class="feat-card wide reveal-left d1">
+        <div class="feat-icon"><i data-lucide="globe-2" width="20" height="20"></i></div>
+        <h3 id="f1-t">Truly Multilingual</h3>
+        <p id="f1-d">Your bot speaks Arabic (Darija & MSA), English, French, Spanish, German, and Swedish. It auto-detects the customer's language and replies natively — no configuration needed.</p>
+      </div>
+      <div class="feat-card reveal-right d2">
+        <div class="feat-icon"><i data-lucide="palette" width="20" height="20"></i></div>
+        <h3 id="f2-t">Your Brand, Your Bot</h3>
+        <p id="f2-d">Upload your logo, pick your colors, name the bot. Customers see your brand, not ours.</p>
+      </div>
+      <div class="feat-card reveal d1">
+        <div class="feat-icon"><i data-lucide="zap" width="20" height="20"></i></div>
+        <h3 id="f3-t">Sub-Second Responses</h3>
+        <p id="f3-d">Powered by Groq — responses in under 1 second. No lag, no waiting, no lost patience.</p>
+      </div>
+      <div class="feat-card reveal d2">
+        <div class="feat-icon"><i data-lucide="bar-chart-3" width="20" height="20"></i></div>
+        <h3 id="f4-t">Live Analytics</h3>
+        <p id="f4-d">Track message usage, conversation counts, and subscription status from a clean dashboard.</p>
+      </div>
+      <div class="feat-card reveal d3">
+        <div class="feat-icon"><i data-lucide="share-2" width="20" height="20"></i></div>
+        <h3 id="f5-t">One-Link Deployment</h3>
+        <p id="f5-d">Get a unique URL. Share it anywhere. Your AI is live in seconds.</p>
+      </div>
+      <div class="feat-card reveal d4">
+        <div class="feat-icon"><i data-lucide="shield-check" width="20" height="20"></i></div>
+        <h3 id="f6-t">Enterprise Security</h3>
+        <p id="f6-d">Built on Supabase with row-level security. Your data is isolated and fully protected.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats bar -->
+<div class="z1" style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(91,94,244,.03);">
+  <div class="container">
+    <div class="stat-row">
+      <div class="stat-item reveal d1"><div class="stat-val grad-text">10K+</div><div class="stat-lbl" id="st1">Conversations Daily</div></div>
+      <div class="stat-item reveal d2"><div class="stat-val grad-text">&lt;1s</div><div class="stat-lbl" id="st2">Avg. Response Time</div></div>
+      <div class="stat-item reveal d3"><div class="stat-val grad-text">6</div><div class="stat-lbl" id="st3">Languages Supported</div></div>
+      <div class="stat-item reveal d4"><div class="stat-val grad-text">99.9%</div><div class="stat-lbl" id="st4">Uptime Guaranteed</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ PRICING -->
+<section class="sec-pad z1" id="pricing">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <div class="section-label" id="price-label">Pricing</div>
+      <h2 class="section-title" id="price-title">Start free.<br><span class="grad-text">Scale when you're ready.</span></h2>
+      <p class="section-sub" style="margin:0 auto;" id="price-sub">No credit card required. No hidden fees. Cancel anytime.</p>
+    </div>
+    <div class="price-grid">
+      <div class="price-card reveal-left d1">
+        <p class="price-label" id="pl-free">Free Trial</p>
+        <div class="price-amount">$0</div>
+        <p class="price-period" id="pp-free">30 days · No card needed</p>
+        <button class="btn btn-ghost" style="width:100%;padding:.82rem;border-radius:12px;font-size:.9rem;justify-content:center;" onclick="openModal('register')" id="pbtn-free">Get Started Free</button>
+        <div class="price-divider"></div>
+        <div class="price-feat"><div class="pf-icon"><i data-lucide="check" width="10" height="10"></i></div><span id="pf1">1,000 messages included</span></div>
+        <div class="price-feat"><div class="pf-icon"><i data-lucide="check" width="10" height="10"></i></div><span id="pf2">Full AI customization</span></div>
+        <div class="price-feat"><div class="pf-icon"><i data-lucide="check" width="10" height="10"></i></div><span id="pf3">6 languages</span></div>
+        <div class="price-feat"><div class="pf-icon"><i data-lucide="check" width="10" height="10"></i></div><span id="pf4">Custom branding</span></div>
+        <div class="price-feat"><div class="pf-icon"><i data-lucide="check" width="10" height="10"></i></div><span id="pf5">Analytics dashboard</span></div>
+      </div>
+      <div class="price-card featured reveal-right d2">
+        <div class="price-glow"></div>
+        <p class="price-label" id="pl-pro" style="color:#c084fc;">Pro Plan</p>
+        <div class="price-amount"><span class="grad-text">$19</span></div>
+        <p class="price-period" id="pp-pro">/ month · Cancel anytime</p>
+        <button class="btn btn-hero" style="width:100%;padding:.82rem;border-radius:12px;font-size:.9rem;justify-content:center;" onclick="openModal('register')" id="pbtn-pro">Start Pro Trial</button>
+        <div class="price-divider" style="background:rgba(91,94,244,.2);"></div>
+        <div class="price-feat"><div class="pf-icon" style="background:rgba(147,51,234,.2);border-color:rgba(147,51,234,.3);color:#d8b4fe;"><i data-lucide="check" width="10" height="10"></i></div><span id="pp1">1,000 messages / month</span></div>
+        <div class="price-feat"><div class="pf-icon" style="background:rgba(147,51,234,.2);border-color:rgba(147,51,234,.3);color:#d8b4fe;"><i data-lucide="check" width="10" height="10"></i></div><span id="pp2">Top-up packs available</span></div>
+        <div class="price-feat"><div class="pf-icon" style="background:rgba(147,51,234,.2);border-color:rgba(147,51,234,.3);color:#d8b4fe;"><i data-lucide="check" width="10" height="10"></i></div><span id="pp3">No expiry</span></div>
+        <div class="price-feat"><div class="pf-icon" style="background:rgba(147,51,234,.2);border-color:rgba(147,51,234,.3);color:#d8b4fe;"><i data-lucide="check" width="10" height="10"></i></div><span id="pp4">Priority support</span></div>
+        <div class="price-feat"><div class="pf-icon" style="background:rgba(147,51,234,.2);border-color:rgba(147,51,234,.3);color:#d8b4fe;"><i data-lucide="check" width="10" height="10"></i></div><span id="pp5">All future features</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════ FINAL CTA -->
+<section class="sec-pad z1">
+  <div class="container">
+    <div class="cta-section reveal-scale">
+      <div class="section-label" style="margin:0 auto 1.1rem;" id="cta-label">Ready?</div>
+      <h2 id="cta-title">Your competitors are already<br><span class="grad-text">using AI to sell.</span></h2>
+      <p id="cta-sub">Set up your AI sales assistant today. Free for 30 days — no credit card, no code, no excuses.</p>
+      <button class="btn btn-hero" style="font-size:1.05rem;padding:1rem 2.8rem;" onclick="openModal('register')">
+        <i data-lucide="zap" width="18" height="18"></i>
+        <span id="cta-btn-text">Start Free Trial Now</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════ FOOTER -->
+<footer class="footer z1">
+  <div class="footer-logo"><span class="grad-text">B-Chat</span></div>
+  <p id="footer-t">AI Sales Assistant Platform · Built with Supabase & Groq</p>
+  <p style="margin-top:.35rem;font-size:.78rem;color:#374151;" id="footer-c">© 2025 B-Chat. All rights reserved.</p>
 </footer>
 
-<!-- ── AUTH MODAL ────────────────────────────────────────── -->
-<div class="modal-overlay" id="authModal">
+<!-- ════════════════════════════════════════════════ AUTH MODAL -->
+<div class="modal-overlay" id="authModal" onclick="handleOverlay(event)">
   <div class="modal-box" style="position:relative;">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-header">
-      <h2 id="modalTitle">Welcome Back</h2>
+      <h2 id="modal-title">Welcome back</h2>
+      <p id="modal-sub">Sign in to your B-Chat account</p>
       <div class="modal-tabs">
-        <div class="modal-tab active" id="tabLogin" onclick="switchTab('login')" data-i18n="login">Login</div>
-        <div class="modal-tab" id="tabRegister" onclick="switchTab('register')" data-i18n="register">Register</div>
+        <div class="m-tab active" id="tab-login" onclick="switchTab('login')">Sign In</div>
+        <div class="m-tab" id="tab-register" onclick="switchTab('register')">Create Account</div>
       </div>
     </div>
     <div class="modal-body">
-      <div class="form-error" id="authError"></div>
-
-      <!-- Login Form -->
+      <div class="form-error" id="authErr"></div>
+      <!-- Login -->
       <div id="loginForm">
-        <div class="form-group">
-          <label data-i18n="email">Email Address</label>
-          <input type="email" id="loginEmail" data-i18n-placeholder="email" placeholder="Email Address"/>
-        </div>
-        <div class="form-group">
-          <label data-i18n="password">Password</label>
-          <input type="password" id="loginPassword" data-i18n-placeholder="password" placeholder="Password"/>
-        </div>
-        <button class="form-submit" onclick="doLogin()" data-i18n="login">Login</button>
-        <div class="auth-switch"><span data-i18n="no_account">Don't have an account?</span> <a onclick="switchTab('register')" data-i18n="register">Register</a></div>
+        <div class="form-group"><label class="form-label" id="lbl-email">Email</label><input class="form-input" type="email" id="l-email" placeholder="you@example.com"/></div>
+        <div class="form-group"><label class="form-label" id="lbl-pass">Password</label><input class="form-input" type="password" id="l-pass" placeholder="••••••••"/></div>
+        <button class="form-submit" onclick="doLogin()" id="login-btn">Sign In</button>
+        <div class="auth-switch"><span id="sw-reg-txt">Don't have an account?</span> <a onclick="switchTab('register')" id="sw-reg-a">Create one</a></div>
       </div>
-
-      <!-- Register Form -->
+      <!-- Register -->
       <div id="registerForm" style="display:none;">
-        <div class="form-group">
-          <label data-i18n="store_name">Store Name</label>
-          <input type="text" id="regStoreName" data-i18n-placeholder="store_name" placeholder="Store Name"/>
-        </div>
-        <div class="form-group">
-          <label data-i18n="email">Email Address</label>
-          <input type="email" id="regEmail" data-i18n-placeholder="email" placeholder="Email Address"/>
-        </div>
-        <div class="form-group">
-          <label data-i18n="password">Password</label>
-          <input type="password" id="regPassword" data-i18n-placeholder="password" placeholder="Password"/>
-        </div>
-        <button class="form-submit" onclick="doRegister()" data-i18n="register">Register</button>
-        <div class="auth-switch"><span data-i18n="have_account">Already have an account?</span> <a onclick="switchTab('login')" data-i18n="login">Login</a></div>
+        <div class="form-group"><label class="form-label" id="lbl-store">Store Name</label><input class="form-input" type="text" id="r-store" placeholder="My Boutique"/></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="r-email" placeholder="you@example.com"/></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="r-pass" placeholder="Min. 6 characters"/></div>
+        <button class="form-submit" onclick="doRegister()" id="reg-btn">Create Account & Start Free Trial</button>
+        <div class="auth-switch"><span id="sw-login-txt">Already have an account?</span> <a onclick="switchTab('login')" id="sw-login-a">Sign in</a></div>
       </div>
     </div>
   </div>
@@ -479,101 +603,284 @@
 
 <script>
 const sb = createSupabase();
+let lang = 'en';
+let currentTab = 'login';
 
-// ── ON LOAD ──────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  const lang = getLang();
-  document.getElementById('langSelect').value = lang;
-  applyLang(lang);
+/* ── BILINGUAL COPY ────────────────────────────────────── */
+const C = {
+  en:{
+    nl_how:'How it works',nl_feat:'Features',nl_price:'Pricing',
+    nav_login:'Login',nav_cta:'Start Free',
+    badge:'AI-Powered · Zero Code · 6 Languages',
+    h1:'Stop losing sales.',
+    h2:'Let AI chat, convince,<br>and sell for you.',
+    sub:'No developer needed. No technical setup. Train your bot in 5 minutes and get a shareable link that sells 24/7 — while you sleep.',
+    cta_main:'Start Free — 30 Days',cta_demo:'See How It Works',
+    proof_num:'1,200+ merchants',proof_rest:'already selling with B-Chat',
+    mock_name:'Boutique Layla AI',
+    mock_m1:'👋 Hello! How can I help you today?',
+    mock_m2:"What's the price of the red dress?",
+    mock_m3:'The red dress 🌹 is 299 DH. Available in S/M/L. Want to reserve?',
+    mock_ph:'Type a message...',
+    ticker:['⚡ Zero technical setup','🌍 6 languages supported','💬 Instant AI replies','📊 Real-time analytics','🔗 One-click deployment','✅ 1,000 free messages','🛍️ Train in 5 minutes','🔒 Enterprise security'],
+    pain_lbl:'The Problem',
+    pain_h:'Your customers are leaving<br><span class="grad-text">without buying.</span>',
+    p1t:"You can't reply 24/7",p1d:"Customers ask questions at midnight. You're asleep. They leave and buy from a competitor.",
+    p2t:'Repetitive questions kill time',p2d:'Price? Size? Delivery? You answer the same 10 questions hundreds of times every week.',
+    p3t:'Slow replies = lost sales',p3d:'78% of customers buy from the first business that responds. Are you always first?',
+    how_lbl:'3 Simple Steps',
+    how_h:'From signup to selling<br><span class="grad-text">in under 10 minutes.</span>',
+    how_sub:'No developer. No agency. No waiting. Just paste your products and go.',
+    s1t:'Feed the AI',s1d:'Paste your product names, prices, and FAQs. Your AI reads everything and becomes an expert on your store instantly.',
+    s2t:'Get Your Link',s2d:'Copy your unique chat link. Add it to your Instagram bio, WhatsApp, or website — one click to deploy.',
+    s3t:'Start Selling',s3d:'Your AI answers customers, handles objections, and drives purchases — 24 hours a day, automatically.',
+    feat_lbl:'Features',
+    feat_h:'Everything you need.<br><span class="grad-text">Nothing you don\'t.</span>',
+    feat_sub:'Built for merchants, not engineers. Every feature works out of the box.',
+    f1t:'Truly Multilingual',f1d:"Your bot speaks Arabic (Darija & MSA), English, French, Spanish, German, and Swedish. It auto-detects the customer's language and replies natively.",
+    f2t:'Your Brand, Your Bot',f2d:"Upload your logo, pick your colors, name the bot. Customers see your brand, not ours.",
+    f3t:'Sub-Second Responses',f3d:'Powered by Groq — responses in under 1 second. No lag, no waiting, no lost patience.',
+    f4t:'Live Analytics',f4d:'Track message usage, conversation counts, and subscription status from a clean dashboard.',
+    f5t:'One-Link Deployment',f5d:'Get a unique URL. Share it anywhere. Your AI is live in seconds.',
+    f6t:'Enterprise Security',f6d:'Built on Supabase with row-level security. Your data is isolated and fully protected.',
+    st1:'Conversations Daily',st2:'Avg. Response Time',st3:'Languages Supported',st4:'Uptime Guaranteed',
+    price_lbl:'Pricing',
+    price_h:"Start free.<br><span class='grad-text'>Scale when you're ready.</span>",
+    price_sub:'No credit card required. No hidden fees. Cancel anytime.',
+    pfl:'Free Trial',pfp:'30 days · No card needed',pfb:'Get Started Free',
+    ppl:'Pro Plan',ppp:'/ month · Cancel anytime',ppb:'Start Pro Trial',
+    pf1:'1,000 messages included',pf2:'Full AI customization',pf3:'6 languages',pf4:'Custom branding',pf5:'Analytics dashboard',
+    pp1:'1,000 messages / month',pp2:'Top-up packs available',pp3:'No expiry',pp4:'Priority support',pp5:'All future features',
+    cta_lbl:'Ready?',
+    cta_h:"Your competitors are already<br><span class='grad-text'>using AI to sell.</span>",
+    cta_sub:'Set up your AI sales assistant today. Free for 30 days — no credit card, no code, no excuses.',
+    cta_btn:'Start Free Trial Now',
+    footer_t:'AI Sales Assistant Platform · Built with Supabase & Groq',
+    footer_c:'© 2025 B-Chat. All rights reserved.',
+    mt_l:'Sign In',mt_r:'Create Account',
+    modal_tl:'Welcome back',modal_sl:'Sign in to your B-Chat account',
+    modal_tr:'Create your account',modal_sr:'Start your 30-day free trial',
+    lbl_store:'Store Name',lbl_email:'Email',lbl_pass:'Password',
+    btn_l:'Sign In',btn_r:'Create Account & Start Free Trial',
+    sw_r_t:"Don't have an account?",sw_r_a:'Create one',
+    sw_l_t:'Already have an account?',sw_l_a:'Sign in',
+    err_l:'Invalid email or password.',err_r:'Registration failed. Try again.',
+  },
+  ar:{
+    nl_how:'كيف تعمل',nl_feat:'المميزات',nl_price:'الأسعار',
+    nav_login:'تسجيل الدخول',nav_cta:'ابدأ مجاناً',
+    badge:'ذكاء اصطناعي · بدون كود · 6 لغات',
+    h1:'وقّف خسارة البيعات.',
+    h2:'خلّي الذكاء الاصطناعي<br>يتكلّم، يقنع، ويبيع عليك.',
+    sub:'بدون إعداد تقني. بدون مبرمج. درّب الروبوت في 5 دقائق واحصل على رابط يبيع 24/7 — حتى وأنت نايم.',
+    cta_main:'ابدأ مجاناً — 30 يوم',cta_demo:'شوف كيف تخدم',
+    proof_num:'+1,200 تاجر',proof_rest:'كيبيعو دابا مع B-Chat',
+    mock_name:'بوتيك ليلى AI',
+    mock_m1:'👋 مرحبا! كيف نقدر نعاونك؟',
+    mock_m2:'بغيت نعرف تمان الروب الحمراء',
+    mock_m3:'الروب 🌹 تمانها 299 درهم. S/M/L. بغيتي تحجزي؟',
+    mock_ph:'كتب رسالة...',
+    ticker:['⚡ بدون إعداد تقني','🌍 6 لغات مدعومة','💬 ردود فورية','📊 تحليلات لحظية','🔗 نشر بنقرة واحدة','✅ 1,000 رسالة مجانية','🛍️ جاهز في 5 دقائق','🔒 أمان متقدم'],
+    pain_lbl:'المشكلة',
+    pain_h:'زبائنك كيمشيو<br><span class="grad-text">بلا ما يشريو.</span>',
+    p1t:'ما تقدرش ترد 24/7',p1d:'الزبائن كيسولو فليل. نتا نايم. كيمشيو ويشريو من منافسك.',
+    p2t:'الأسئلة المكررة كتضيع الوقت',p2d:'التمان؟ القياس؟ التوصيل؟ كتجاوب على نفس 10 أسئلة مئات المرات.',
+    p3t:'الرد البطيء = بيعات ضايعة',p3d:'78% من الزبائن كيشريو من أول واحد يجاوب. واش أنت دايماً الأول؟',
+    how_lbl:'3 خطوات بسيطة',
+    how_h:'من التسجيل للبيع<br><span class="grad-text">في أقل من 10 دقائق.</span>',
+    how_sub:'بدون مطور. بدون وكالة. بدون انتظار. غير علّق منتجاتك وبدأ.',
+    s1t:'علّم الذكاء الاصطناعي',s1d:'لصق أسماء منتجاتك والأسعار والأسئلة الشائعة. الذكاء الاصطناعي يقرا كل شيء ويولي خبير في متجرك على الفور.',
+    s2t:'خد رابطك',s2d:'كوبي الرابط الخاص بيك. زيده في بيو الانستغرام، واتساب، أو الموقع — نشر بنقرة واحدة.',
+    s3t:'ابدأ البيع',s3d:'الذكاء الاصطناعي يجاوب الزبائن ويتعامل مع الاعتراضات ويجيب الطلبات — 24 ساعة في اليوم.',
+    feat_lbl:'المميزات',
+    feat_h:"كل ما تحتاجه.<br><span class='grad-text'>ولا زيادة.</span>",
+    feat_sub:'مصمم للتجار، مش للمهندسين. كل ميزة تشتغل من أول مرة.',
+    f1t:'متعدد اللغات حقيقياً',f1d:'الروبوت كيهضر بالعربية (دارجة وفصحى)، الإنجليزية، الفرنسية، الإسبانية، الألمانية والسويدية. كيكتشف لغة الزبون ويجاوبه بيها.',
+    f2t:'براندك، روبوتك',f2d:'رفع الشعار، اختار الألوان، سمّي الروبوت. الزبائن كيشوفو براندك، مش ديالنا.',
+    f3t:'ردود في أقل من ثانية',f3d:'مدعوم بـ Groq — ردود سريعة بدون تأخير.',
+    f4t:'تحليلات مباشرة',f4d:'تتبع استخدام الرسائل وعدد المحادثات وحالة الاشتراك.',
+    f5t:'نشر برابط واحد',f5d:'رابط فريد. شاركه في أي مكان. الذكاء الاصطناعي مباشر في ثوانٍ.',
+    f6t:'أمان متقدم',f6d:'مبني على Supabase بأمان على مستوى الصف. بياناتك معزولة ومحمية.',
+    st1:'محادثة يومياً',st2:'متوسط وقت الرد',st3:'لغات مدعومة',st4:'ضمان التشغيل',
+    price_lbl:'الأسعار',
+    price_h:"ابدأ مجاناً.<br><span class='grad-text'>توسع لما تكون جاهز.</span>",
+    price_sub:'ما كاين لا بطاقة بنكية ولا رسوم خفية. إلغاء في أي وقت.',
+    pfl:'تجربة مجانية',pfp:'30 يوم · بدون بطاقة',pfb:'ابدأ مجاناً',
+    ppl:'الباقة المدفوعة',ppp:'/ شهر · إلغاء في أي وقت',ppb:'ابدأ التجربة المدفوعة',
+    pf1:'1,000 رسالة مشمولة',pf2:'تخصيص ذكاء اصطناعي كامل',pf3:'6 لغات',pf4:'براند مخصص',pf5:'داشبورد تحليلات',
+    pp1:'1,000 رسالة / شهر',pp2:'حزم إضافية متاحة',pp3:'بدون انتهاء صلاحية',pp4:'دعم ذو أولوية',pp5:'جميع الميزات القادمة',
+    cta_lbl:'مستعد؟',
+    cta_h:"منافسيك كيستعملو بالفعل<br><span class='grad-text'>الذكاء الاصطناعي للبيع.</span>",
+    cta_sub:'رتّب مساعدك الذكي اليوم. مجاناً 30 يوم — بدون بطاقة، بدون كود.',
+    cta_btn:'ابدأ التجربة المجانية الآن',
+    footer_t:'منصة مساعد مبيعات ذكي · مبنية بـ Supabase & Groq',
+    footer_c:'© 2025 B-Chat. جميع الحقوق محفوظة.',
+    mt_l:'تسجيل الدخول',mt_r:'إنشاء حساب',
+    modal_tl:'مرحباً بعودتك',modal_sl:'سجّل الدخول لحسابك',
+    modal_tr:'أنشئ حسابك',modal_sr:'ابدأ تجربتك المجانية لـ 30 يوم',
+    lbl_store:'اسم المتجر',lbl_email:'البريد الإلكتروني',lbl_pass:'كلمة المرور',
+    btn_l:'تسجيل الدخول',btn_r:'إنشاء حساب وابدأ التجربة المجانية',
+    sw_r_t:'ليس لديك حساب؟',sw_r_a:'أنشئ واحداً',
+    sw_l_t:'لديك حساب بالفعل؟',sw_l_a:'سجّل الدخول',
+    err_l:'البريد الإلكتروني أو كلمة المرور غير صحيحة.',err_r:'فشل التسجيل. حاول مرة أخرى.',
+  }
+};
 
-  // If logged in → redirect to dashboard
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) window.location.href = 'dashboard.html';
-});
+/* ── APPLY LANG ──────────────────────────────────────────── */
+function switchLang(l) {
+  lang = l;
+  localStorage.setItem('bchat_lang', l);
+  const c = C[l], isAR = l === 'ar';
+  document.documentElement.setAttribute('dir', isAR ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', l);
+  document.getElementById('lo-en').classList.toggle('active', l==='en');
+  document.getElementById('lo-ar').classList.toggle('active', l==='ar');
 
-// ── LANGUAGE ─────────────────────────────────────────────
-document.getElementById('langSelect').addEventListener('change', function(){
-  setLang(this.value);
-});
+  const set = (id, v, html) => { const el=document.getElementById(id); if(!el) return; if(html) el.innerHTML=v; else el.textContent=v; };
+  const seta = (id, v) => set(id,v,true);
 
-// ── NAV SCROLL ───────────────────────────────────────────
-window.addEventListener('scroll', () => {
-  const nav = document.getElementById('navbar');
-  nav.style.background = window.scrollY > 50
-    ? 'rgba(7,8,15,.95)'
-    : 'rgba(7,8,15,.7)';
-});
+  // Nav
+  set('nl-how',c.nl_how); set('nl-features',c.nl_feat); set('nl-pricing',c.nl_price);
+  set('nav-login',c.nav_login); set('nav-cta',c.nav_cta);
+  set('mnl-how',c.nl_how); set('mnl-feat',c.nl_feat); set('mnl-price',c.nl_price);
+  set('mnl-login',c.nav_login); set('mnl-cta',c.nav_cta);
+  // Hero
+  set('badge-text',c.badge); set('h-line1',c.h1); seta('h-line2',c.h2);
+  set('hero-sub-text',c.sub); set('cta-main-text',c.cta_main); set('cta-demo-text',c.cta_demo);
+  set('proof-num',c.proof_num); set('proof-rest',c.proof_rest);
+  // Mock
+  set('mock-name',c.mock_name); set('mock-m1',c.mock_m1); set('mock-m2',c.mock_m2); set('mock-m3',c.mock_m3); set('mock-ph',c.mock_ph);
+  // Ticker
+  buildTicker(c.ticker);
+  // Pain
+  set('pain-label',c.pain_lbl); seta('pain-title',c.pain_h);
+  set('pain1-t',c.p1t); set('pain1-d',c.p1d); set('pain2-t',c.p2t); set('pain2-d',c.p2d); set('pain3-t',c.p3t); set('pain3-d',c.p3d);
+  // How
+  set('how-label',c.how_lbl); seta('how-title',c.how_h); set('how-sub',c.how_sub);
+  set('s1-t',c.s1t); set('s1-d',c.s1d); set('s2-t',c.s2t); set('s2-d',c.s2d); set('s3-t',c.s3t); set('s3-d',c.s3d);
+  // Features
+  set('feat-label',c.feat_lbl); seta('feat-title',c.feat_h); set('feat-sub',c.feat_sub);
+  ['1','2','3','4','5','6'].forEach(n=>{ set(`f${n}-t`,c[`f${n}t`]); set(`f${n}-d`,c[`f${n}d`]); });
+  // Stats
+  set('st1',c.st1); set('st2',c.st2); set('st3',c.st3); set('st4',c.st4);
+  // Pricing
+  set('price-label',c.price_lbl); seta('price-title',c.price_h); set('price-sub',c.price_sub);
+  set('pl-free',c.pfl); set('pp-free',c.pfp); set('pbtn-free',c.pfb);
+  set('pl-pro',c.ppl); set('pp-pro',c.ppp); set('pbtn-pro',c.ppb);
+  ['1','2','3','4','5'].forEach(n=>{ set(`pf${n}`,c[`pf${n}`]); set(`pp${n}`,c[`pp${n}`]); });
+  // CTA
+  set('cta-label',c.cta_lbl); seta('cta-title',c.cta_h); set('cta-sub',c.cta_sub); set('cta-btn-text',c.cta_btn);
+  // Footer
+  set('footer-t',c.footer_t); set('footer-c',c.footer_c);
+  // Modal strings
+  updateModal();
+  // Re-init icons
+  if(window.lucide) setTimeout(()=>lucide.createIcons(),30);
+}
 
-// ── MODAL ────────────────────────────────────────────────
-function openModal(tab = 'login') {
-  document.getElementById('authModal').classList.add('active');
+function buildTicker(items) {
+  const doubled = [...items,...items];
+  document.getElementById('tickerTrack').innerHTML = doubled.map(t=>{
+    const parts = t.split(' ');
+    return `<div class="ticker-item"><span>${parts[0]}</span><strong>${parts.slice(1).join(' ')}</strong></div>`;
+  }).join('');
+}
+
+/* ── MODAL ───────────────────────────────────────────────── */
+function openModal(tab='login') {
+  document.getElementById('authModal').classList.add('open');
   switchTab(tab);
 }
 function closeModal() {
-  document.getElementById('authModal').classList.remove('active');
-  document.getElementById('authError').style.display = 'none';
+  document.getElementById('authModal').classList.remove('open');
+  document.getElementById('authErr').style.display='none';
 }
+function handleOverlay(e){ if(e.target===document.getElementById('authModal')) closeModal(); }
 function switchTab(tab) {
-  const isLogin = tab === 'login';
-  document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
-  document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
-  document.getElementById('tabLogin').classList.toggle('active', isLogin);
-  document.getElementById('tabRegister').classList.toggle('active', !isLogin);
-  document.getElementById('authError').style.display = 'none';
+  currentTab=tab;
+  document.getElementById('loginForm').style.display    = tab==='login'?'block':'none';
+  document.getElementById('registerForm').style.display = tab==='register'?'block':'none';
+  document.getElementById('tab-login').classList.toggle('active',tab==='login');
+  document.getElementById('tab-register').classList.toggle('active',tab==='register');
+  document.getElementById('authErr').style.display='none';
+  updateModal();
 }
-
-function showAuthError(msg) {
-  const el = document.getElementById('authError');
-  el.textContent = msg; el.style.display = 'block';
+function updateModal() {
+  const c=C[lang], isL=currentTab==='login';
+  document.getElementById('modal-title').textContent = isL?c.modal_tl:c.modal_tr;
+  document.getElementById('modal-sub').textContent   = isL?c.modal_sl:c.modal_sr;
+  document.getElementById('tab-login').textContent   = c.mt_l;
+  document.getElementById('tab-register').textContent= c.mt_r;
+  document.getElementById('lbl-store').textContent   = c.lbl_store;
+  document.getElementById('lbl-email').textContent   = c.lbl_email;
+  document.getElementById('lbl-pass').textContent    = c.lbl_pass;
+  document.getElementById('login-btn').textContent   = c.btn_l;
+  document.getElementById('reg-btn').textContent     = c.btn_r;
+  document.getElementById('sw-reg-txt').textContent  = c.sw_r_t;
+  document.getElementById('sw-reg-a').textContent    = c.sw_r_a;
+  document.getElementById('sw-login-txt').textContent= c.sw_l_t;
+  document.getElementById('sw-login-a').textContent  = c.sw_l_a;
 }
+function showErr(msg){ const e=document.getElementById('authErr'); e.textContent=msg; e.style.display='block'; }
 
-// ── LOGIN ────────────────────────────────────────────────
+/* ── AUTH ────────────────────────────────────────────────── */
 async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPassword').value;
-  if (!email || !pass) return showAuthError('Please fill in all fields.');
-  const btn = document.querySelector('#loginForm .form-submit');
-  btn.textContent = '...'; btn.disabled = true;
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  btn.textContent = t('login'); btn.disabled = false;
-  if (error) return showAuthError(t('error_login'));
-  window.location.href = 'dashboard.html';
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  if(!email||!pass) return showErr('Please fill in all fields.');
+  const btn=document.getElementById('login-btn');
+  btn.textContent='...'; btn.disabled=true;
+  const{error}=await sb.auth.signInWithPassword({email,password:pass});
+  btn.textContent=C[lang].btn_l; btn.disabled=false;
+  if(error) return showErr(C[lang].err_l);
+  window.location.href='dashboard.html';
 }
-
-// ── REGISTER ─────────────────────────────────────────────
 async function doRegister() {
-  const storeName = document.getElementById('regStoreName').value.trim();
-  const email     = document.getElementById('regEmail').value.trim();
-  const pass      = document.getElementById('regPassword').value;
-  if (!storeName || !email || !pass) return showAuthError('Please fill in all fields.');
-  if (pass.length < 6) return showAuthError('Password must be at least 6 characters.');
-  const btn = document.querySelector('#registerForm .form-submit');
-  btn.textContent = '...'; btn.disabled = true;
-  const { error } = await sb.auth.signUp({
-    email, password: pass,
-    options: { data: { store_name: storeName } }
-  });
-  btn.textContent = t('register'); btn.disabled = false;
-  if (error) return showAuthError(t('error_register'));
-  window.location.href = 'dashboard.html';
+  const store=document.getElementById('r-store').value.trim();
+  const email=document.getElementById('r-email').value.trim();
+  const pass=document.getElementById('r-pass').value;
+  if(!store||!email||!pass) return showErr('Please fill in all fields.');
+  if(pass.length<6) return showErr('Password must be at least 6 characters.');
+  const btn=document.getElementById('reg-btn');
+  btn.textContent='...'; btn.disabled=true;
+  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{store_name:store}}});
+  btn.textContent=C[lang].btn_r; btn.disabled=false;
+  if(error) return showErr(C[lang].err_r);
+  window.location.href='dashboard.html';
 }
 
-// ── SCROLL TO SECTION ────────────────────────────────────
-function scrollToSection(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+/* ── NAV & SCROLL ────────────────────────────────────────── */
+function scrollTo(id){ document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'}); }
+function toggleMenu(){ document.getElementById('mobileMenu').classList.toggle('open'); }
+
+/* ── SCROLL REVEAL ───────────────────────────────────────── */
+function initReveal() {
+  const els=document.querySelectorAll('.reveal,.reveal-left,.reveal-right,.reveal-scale');
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('revealed'); obs.unobserve(e.target); } });
+  },{threshold:.1});
+  els.forEach(el=>obs.observe(el));
 }
 
-// Close modal on overlay click
-document.getElementById('authModal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
+/* ── INIT ────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', async ()=>{
+  // Navbar scroll
+  window.addEventListener('scroll',()=>{ document.getElementById('navbar').classList.toggle('scrolled',window.scrollY>40); });
+  // Lang
+  const saved=localStorage.getItem('bchat_lang')||'en';
+  switchLang(saved);
+  // Scroll reveal
+  initReveal();
+  // Lucide
+  if(window.lucide) lucide.createIcons();
+  // Auth redirect
+  const{data:{session}}=await sb.auth.getSession();
+  if(session) window.location.href='dashboard.html';
 });
-
-// Enter key support
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const loginVisible = document.getElementById('loginForm').style.display !== 'none';
-    if (loginVisible && document.getElementById('authModal').classList.contains('active')) doLogin();
-    else if (document.getElementById('authModal').classList.contains('active')) doRegister();
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeModal();
+  if(e.key==='Enter'&&document.getElementById('authModal').classList.contains('open')){
+    if(currentTab==='login') doLogin(); else doRegister();
   }
 });
 </script>
