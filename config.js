@@ -8,8 +8,8 @@ const APP_CONFIG = Object.freeze({
 
   /* ── SUPABASE ────────────────────────────────────────────────── */
   supabase: {
-    url: 'https://cfltxffuoodpzxigfpgo.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmbHR4ZmZ1b29kcHp4aWdmcGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MzI5NzMsImV4cCI6MjA4NzIwODk3M30.jtqQq5YhxtoC-yG_xycbP76o1TcFc0mhe3AvPhgYGZA',
+    url: 'https://ebqfpbascmshvwdgawns.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVicWZwYmFzY21zaHZ3ZGdhd25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDk2ODcsImV4cCI6MjA4OTA4NTY4N30.z3teVIDb30sRfogMuSNMnDNd3tnz_IhGfJGdRZ4QRKY',
   },
 
   /* ── AI PROXY ────────────────────────────────────────────────── */
