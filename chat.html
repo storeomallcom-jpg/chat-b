@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>B-Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --primary: #6366f1;
+    --primary-light: rgba(99,102,241,.15);
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #253347;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --border: rgba(255,255,255,.08);
+    --chat-bg: #07080f;
+  }
+  * { box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent; }
+  html,body { height:100%;overflow:hidden; }
+  body { font-family:'DM Sans',sans-serif;background:var(--chat-bg);color:var(--text);display:flex;flex-direction:column; }
+
+  /* ── SCREENS ─────────────────────────────────── */
+  .screen { display:none;flex-direction:column;height:100%; }
+  .screen.active { display:flex; }
+
+  /* ── WELCOME SCREEN ──────────────────────────── */
+  #welcomeScreen {
+    align-items:center;justify-content:center;
+    padding:2rem;text-align:center;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%,rgba(99,102,241,.2) 0%,transparent 70%), var(--chat-bg);
+  }
+  .welcome-logo {
+    width:80px;height:80px;border-radius:50%;overflow:hidden;
+    border:3px solid var(--primary);margin:0 auto 1.25rem;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    display:flex;align-items:center;justify-content:center;font-size:2rem;
+    box-shadow:0 0 40px rgba(99,102,241,.4);
+  }
+  .welcome-logo img { width:100%;height:100%;object-fit:cover;border-radius:50%; }
+  .welcome-name { font-size:1.4rem;font-weight:700;color:#f1f5f9;margin-bottom:.3rem; }
+  .welcome-bio  { font-size:.9rem;color:var(--text-muted);max-width:320px;margin:0 auto .5rem;line-height:1.6; }
+  .online-dot { display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;color:#6ee7b7; }
+  .online-dot::before { content:'';width:6px;height:6px;border-radius:50%;background:#6ee7b7;display:inline-block; }
+
+  .welcome-form { width:100%;max-width:360px;margin:2rem auto 0; }
+  .w-input {
+    width:100%;padding:.75rem 1rem;border-radius:12px;outline:none;margin-bottom:.75rem;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+    color:var(--text);font-size:.95rem;font-family:'DM Sans',sans-serif;transition:border-color .2s;
+  }
+  .w-input:focus { border-color:var(--primary);background:rgba(99,102,241,.08); }
+  .start-btn {
+    width:100%;padding:.85rem;border-radius:12px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;
+    font-weight:700;font-size:1rem;font-family:'DM Sans',sans-serif;
+    transition:all .25s;box-shadow:0 0 30px rgba(99,102,241,.3);
+  }
+  .start-btn:hover { transform:translateY(-1px);box-shadow:0 0 50px rgba(99,102,241,.5); }
+  .start-btn:disabled { opacity:.5;cursor:not-allowed;transform:none; }
+
+  /* ── CHAT SCREEN ──────────────────────────────── */
+  #chatScreen { background:var(--chat-bg); }
+
+  /* Header */
+  .chat-header {
+    display:flex;align-items:center;gap:.85rem;
+    padding:.875rem 1rem;
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+    position:relative;z-index:10;
+  }
+  .chat-avatar {
+    width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:1.2rem;
+    background:linear-gradient(135deg,var(--primary),#a855f7);
+    border:2px solid rgba(99,102,241,.4);
+  }
+  .chat-avatar img { width:100%;height:100%;object-fit:cover; }
+  .chat-meta { flex:1;min-width:0; }
+  .chat-meta .chat-name { font-weight:700;color:#f1f5f9;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .chat-meta .chat-status { font-size:.75rem;color:#6ee7b7;display:flex;align-items:center;gap:.3rem; }
+  .chat-meta .chat-status::before { content:'';width:5px;height:5px;border-radius:50%;background:#6ee7b7;display:inline-block; }
+  .chat-header-actions { display:flex;align-items:center;gap:.5rem; }
+  .header-btn { width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.05);border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s; }
+  .header-btn:hover { background:rgba(255,255,255,.1);color:var(--text); }
+
+  /* Messages area */
+  .messages-area {
+    flex:1;overflow-y:auto;padding:1rem;
+    display:flex;flex-direction:column;gap:.6rem;
+    background: radial-gradient(ellipse 100% 50% at 50% 100%,rgba(99,102,241,.06) 0%,transparent 70%), var(--chat-bg);
+  }
+
+  /* Bubbles */
+  .msg-row { display:flex;align-items:flex-end;gap:.5rem;animation:msgIn .25s ease both; }
+  .msg-row.bot  { justify-content:flex-start; }
+  .msg-row.user { justify-content:flex-end; }
+  @keyframes msgIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .msg-avatar {
+    width:28px;height:28px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:.8rem;
+    overflow:hidden;
+  }
+  .msg-avatar.bot-av { background:linear-gradient(135deg,var(--primary),#a855f7); }
+  .msg-avatar.bot-av img { width:100%;height:100%;object-fit:cover; }
+  .msg-avatar.user-av { background:var(--surface2); }
+
+  .bubble {
+    max-width:72%;padding:.65rem .95rem;border-radius:18px;font-size:.9rem;line-height:1.55;
+    word-break:break-word;position:relative;
+  }
+  .bubble.bot {
+    background:var(--surface);color:var(--text);
+    border-bottom-left-radius:4px;
+  }
+  .bubble.user {
+    background:var(--primary);color:#fff;
+    border-bottom-right-radius:4px;
+  }
+  .bubble .time {
+    display:block;font-size:.65rem;margin-top:.3rem;opacity:.55;text-align:right;
+  }
+
+  /* Typing indicator */
+  .typing-row { display:flex;align-items:flex-end;gap:.5rem; }
+  .typing-bubble { background:var(--surface);border-radius:18px;border-bottom-left-radius:4px;padding:.65rem .95rem;display:flex;gap:5px;align-items:center; }
+  .typing-dot { width:7px;height:7px;border-radius:50%;background:var(--text-muted);animation:typingAnim 1.2s infinite ease; }
+  .typing-dot:nth-child(2){animation-delay:.2s}
+  .typing-dot:nth-child(3){animation-delay:.4s}
+  @keyframes typingAnim { 0%,80%,100%{transform:scale(.8);opacity:.5} 40%{transform:scale(1.1);opacity:1} }
+
+  /* Date divider */
+  .date-divider { text-align:center;font-size:.72rem;color:var(--text-muted);padding:.5rem 0;
+    display:flex;align-items:center;gap:.75rem; }
+  .date-divider::before,.date-divider::after { content:'';flex:1;height:1px;background:var(--border); }
+
+  /* Greeting bubble */
+  .greeting-bubble { background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);
+    border-radius:16px;padding:1rem;text-align:center;font-size:.875rem;color:var(--text-muted); }
+
+  /* Input area */
+  .input-area {
+    padding:.75rem 1rem;background:var(--bg);border-top:1px solid var(--border);
+    display:flex;align-items:flex-end;gap:.65rem;flex-shrink:0;
+  }
+  .msg-input {
+    flex:1;padding:.7rem 1rem;border-radius:22px;outline:none;resize:none;
+    background:rgba(255,255,255,.06);border:1px solid var(--border);
+    color:var(--text);font-size:.9rem;font-family:'DM Sans',sans-serif;
+    line-height:1.4;max-height:120px;overflow-y:auto;
+    transition:border-color .2s;
+  }
+  .msg-input:focus { border-color:rgba(99,102,241,.5);background:rgba(99,102,241,.06); }
+  .send-btn {
+    width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
+    background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;font-size:1.1rem;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .2s;box-shadow:0 4px 20px rgba(99,102,241,.4);
+  }
+  .send-btn:hover { transform:scale(1.08);box-shadow:0 4px 30px rgba(99,102,241,.6); }
+  .send-btn:disabled { opacity:.4;cursor:not-allowed;transform:none; }
+
+  /* Language switcher in header */
+  .lang-mini {
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    color:var(--text-muted);border-radius:6px;padding:.25rem .4rem;font-size:.72rem;
+    cursor:pointer;outline:none;
+  }
+
+  /* Error screen */
+  #errorScreen { align-items:center;justify-content:center;padding:2rem;text-align:center; }
+  .error-icon { font-size:4rem;margin-bottom:1rem; }
+
+  /* Scrollbar */
+  .messages-area::-webkit-scrollbar{width:4px}
+  .messages-area::-webkit-scrollbar-track{background:transparent}
+  .messages-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+  /* Expired / no balance banner */
+  .status-banner {
+    margin:.75rem 1rem;padding:.75rem 1rem;border-radius:12px;font-size:.85rem;
+    display:none;align-items:center;gap:.6rem;
+  }
+  .status-banner.error { background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:#fca5a5;display:flex; }
+</style>
+</head>
+<body>
+
+<!-- ── ERROR SCREEN ─────────────────────────────────────── -->
+<div class="screen" id="errorScreen">
+  <div class="error-icon">😕</div>
+  <h2 style="color:#f1f5f9;margin-bottom:.5rem;">Bot Not Found</h2>
+  <p style="color:var(--text-muted);" id="errorMsg">This chat link is invalid or the merchant does not exist.</p>
+</div>
+
+<!-- ── WELCOME SCREEN ──────────────────────────────────── -->
+<div class="screen" id="welcomeScreen">
+  <div class="welcome-logo" id="welcomeLogo">🤖</div>
+  <h1 class="welcome-name" id="welcomeName">Loading...</h1>
+  <p class="welcome-bio" id="welcomeBio"></p>
+  <div class="online-dot">Online · Ready to help</div>
+  <div class="welcome-form">
+    <input class="w-input" type="text" id="customerName" data-i18n-placeholder="your_name" placeholder="Your Name (optional)" maxlength="60"/>
+    <button class="start-btn" id="startBtn" onclick="startChat()" data-i18n="start_chat">Start Chatting</button>
+  </div>
+  <div style="margin-top:1.5rem;">
+    <select class="lang-mini" style="padding:.35rem .6rem;font-size:.8rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#94a3b8;border-radius:8px;outline:none;cursor:pointer;" onchange="setLang(this.value)" id="welcomeLangSelect">
+      <option value="en">🇬🇧 EN</option>
+      <option value="ar">🇸🇦 AR</option>
+      <option value="fr">🇫🇷 FR</option>
+      <option value="es">🇪🇸 ES</option>
+      <option value="de">🇩🇪 DE</option>
+      <option value="sv">🇸🇪 SV</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── CHAT SCREEN ─────────────────────────────────────── -->
+<div class="screen" id="chatScreen">
+
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="chat-avatar" id="chatAvatar">🤖</div>
+    <div class="chat-meta">
+      <div class="chat-name" id="chatBotName">B-Chat</div>
+      <div class="chat-status" id="chatStatus">Online</div>
+    </div>
+    <div class="chat-header-actions">
+      <select class="lang-mini" onchange="setLang(this.value)" id="chatLangSelect">
+        <option value="en">EN</option>
+        <option value="ar">AR</option>
+        <option value="fr">FR</option>
+        <option value="es">ES</option>
+        <option value="de">DE</option>
+        <option value="sv">SV</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Status banner (expired/no balance) -->
+  <div class="status-banner" id="statusBanner"></div>
+
+  <!-- Messages -->
+  <div class="messages-area" id="messagesArea">
+    <div class="date-divider">Today</div>
+    <div class="greeting-bubble" id="greetingBubble"></div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <textarea
+      class="msg-input"
+      id="msgInput"
+      rows="1"
+      data-i18n-placeholder="type_message"
+      placeholder="Type a message..."
+      onkeydown="handleKeyDown(event)"
+      oninput="autoResize(this)"
+    ></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<script>
+const sb = createSupabase();
+let merchant     = null;
+let customerName = '';
+let convId       = null;
+let chatHistory  = [];   // [{role:'user'|'assistant', content:string}]
+let isTyping     = false;
+let isBotActive  = true;
+
+// ── INIT ─────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const lang = getLang();
+  applyLang(lang);
+  ['welcomeLangSelect','chatLangSelect'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = lang;
+    el?.addEventListener('change', function(){ setLang(this.value); applyLang(this.value); });
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const mid    = params.get('id');
+  if (!mid) { showError('No merchant ID provided in the URL.'); return; }
+
+  await loadMerchant(mid);
+});
+
+// ── LOAD MERCHANT ─────────────────────────────────────────
+async function loadMerchant(mid) {
+  const { data, error } = await sb
+    .from('profiles')
+    .select('id,store_name,bot_name,logo_url,bio,products_info,custom_prompt,theme_color,sub_end_date,message_balance')
+    .eq('id', mid)
+    .single();
+
+  if (error || !data) { showError('This chat link is invalid or the store has been removed.'); return; }
+  merchant = data;
+
+  // Apply theme color
+  const c = merchant.theme_color || '#6366f1';
+  document.documentElement.style.setProperty('--primary', c);
+  document.documentElement.style.setProperty('--primary-light', hexToRgba(c, 0.15));
+
+  // Update page title
+  document.title = `Chat with ${merchant.store_name}`;
+
+  // Welcome screen
+  populateWelcome();
+  showScreen('welcomeScreen');
+}
+
+function populateWelcome() {
+  // Logo
+  const logoWrap = document.getElementById('welcomeLogo');
+  if (merchant.logo_url) {
+    logoWrap.innerHTML = `<img src="${merchant.logo_url}" alt="Logo"/>`;
+  } else {
+    logoWrap.textContent = (merchant.store_name||'S')[0].toUpperCase();
+  }
+
+  document.getElementById('welcomeName').textContent = merchant.store_name || 'Store';
+  document.getElementById('welcomeBio').textContent  = merchant.bio || '';
+}
+
+// ── START CHAT ─────────────────────────────────────────────
+async function startChat() {
+  const btn = document.getElementById('startBtn');
+  btn.textContent = '...'; btn.disabled = true;
+
+  customerName = document.getElementById('customerName').value.trim() || t('your_name').replace(' (optional)','').replace(' (valfritt)','').replace(' (optionnel)','') || 'Customer';
+
+  // Update chat header
+  const chatAvatar = document.getElementById('chatAvatar');
+  if (merchant.logo_url) {
+    chatAvatar.innerHTML = `<img src="${merchant.logo_url}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+  } else {
+    chatAvatar.textContent = (merchant.bot_name||'B')[0];
+  }
+  document.getElementById('chatBotName').textContent = merchant.bot_name || merchant.store_name;
+  document.getElementById('chatStatus').textContent  = 'Online · AI Assistant';
+
+  // Check if bot can reply
+  const canReply = checkBotActive();
+  if (!canReply) {
+    isBotActive = false;
+    const banner = document.getElementById('statusBanner');
+    const now = new Date();
+    if (new Date(merchant.sub_end_date) <= now) {
+      banner.textContent = '⚠️ ' + t('trial_expired');
+    } else {
+      banner.textContent = '⚠️ ' + t('no_messages');
+    }
+    banner.classList.add('error');
+    document.getElementById('msgInput').disabled = true;
+    document.getElementById('sendBtn').disabled  = true;
+  }
+
+  // Set greeting
+  document.getElementById('greetingBubble').textContent =
+    `👋 ${merchant.bot_name || 'B-Chat'} is ready to assist you at ${merchant.store_name}!`;
+
+  // Create conversation in DB
+  await createConversation();
+
+  showScreen('chatScreen');
+  btn.textContent = t('start_chat'); btn.disabled = false;
+
+  // Auto scroll
+  scrollBottom();
+
+  // Focus input
+  if (isBotActive) document.getElementById('msgInput').focus();
+}
+
+// ── CHECK BOT ACTIVE ──────────────────────────────────────
+function checkBotActive() {
+  const now = new Date();
+  const subEnd = new Date(merchant.sub_end_date);
+  return subEnd > now && (merchant.message_balance || 0) > 0;
+}
+
+// ── CREATE CONVERSATION ───────────────────────────────────
+async function createConversation() {
+  const { data, error } = await sb.from('conversations').insert({
+    merchant_id:   merchant.id,
+    customer_data: { name: customerName, started_at: new Date().toISOString() },
+    chat_history:  [],
+  }).select('id').single();
+
+  if (!error && data) convId = data.id;
+}
+
+// ── SEND MESSAGE ──────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('msgInput');
+  const text  = input.value.trim();
+  if (!text || isTyping) return;
+  if (!isBotActive) return;
+
+  input.value = ''; autoResize(input);
+
+  // Add user bubble
+  appendBubble('user', text);
+  chatHistory.push({ role:'user', content:text });
+
+  // Show typing
+  showTyping();
+  isTyping = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  // Call Groq
+  const reply = await callGroq(text);
+
+  // Hide typing
+  hideTyping();
+  isTyping = false;
+  document.getElementById('sendBtn').disabled = false;
+
+  // Add bot bubble
+  appendBubble('bot', reply);
+  chatHistory.push({ role:'assistant', content:reply });
+
+  // Deduct message
+  merchant.message_balance = Math.max(0, (merchant.message_balance||1) - 1);
+  await sb.from('profiles').update({ message_balance: merchant.message_balance }).eq('id', merchant.id);
+
+  // Save conversation
+  if (convId) {
+    await sb.from('conversations').update({
+      chat_history: chatHistory,
+      customer_data: { name: customerName, last_active: new Date().toISOString() }
+    }).eq('id', convId);
+  }
+
+  // Check if balance hit zero
+  if (merchant.message_balance <= 0) {
+    isBotActive = false;
+    document.getElementById('statusBanner').textContent = '⚠️ ' + t('no_messages');
+    document.getElementById('statusBanner').classList.add('error');
+    document.getElementById('msgInput').disabled = true;
+    document.getElementById('sendBtn').disabled  = true;
+  }
+
+  scrollBottom();
+  input.focus();
+}
+
+// ── CALL GROQ ─────────────────────────────────────────────
+async function callGroq(userMessage) {
+  const systemPrompt = buildSystemPrompt();
+
+  // Keep last 20 messages for context window
+  const contextMsgs = chatHistory.slice(-20);
+
+  const payload = {
+    model:    BCHAT_CONFIG.GROQ_MODEL,
+    max_tokens: 500,
+    messages: [
+      { role:'system', content: systemPrompt },
+      ...contextMsgs.slice(0, -1),   // history without latest (already added)
+      { role:'user', content: userMessage }
+    ],
+    temperature: 0.7,
+  };
+
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${BCHAT_CONFIG.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      console.error('Groq error:', err);
+      return 'I apologize, I encountered an issue. Please try again.';
+    }
+
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content?.trim() || 'Sorry, I could not process that.';
+  } catch (err) {
+    console.error('Groq fetch error:', err);
+    return 'Connection error. Please check your internet and try again.';
+  }
+}
+
+// ── BUILD SYSTEM PROMPT ───────────────────────────────────
+function buildSystemPrompt() {
+  const parts = [
+    `You are ${merchant.bot_name || 'an AI Sales Assistant'} for "${merchant.store_name}".`,
+    `Your role is to assist customers, answer questions, and help them make purchasing decisions.`,
+    `You are friendly, professional, and knowledgeable about the store's products.`,
+    `Always stay in character as the store's dedicated assistant.`,
+    `Current language: ${document.documentElement.lang || 'en'}. Respond in the same language the customer uses.`,
+    `Customer name: ${customerName}.`,
+  ];
+
+  if (merchant.bio) {
+    parts.push(`\nAbout the store:\n${merchant.bio}`);
+  }
+
+  if (merchant.products_info) {
+    parts.push(`\nProducts & Information:\n${merchant.products_info}`);
+  }
+
+  if (merchant.custom_prompt) {
+    parts.push(`\nBehavior Instructions:\n${merchant.custom_prompt}`);
+  }
+
+  parts.push(`\nKeep responses concise (2-4 sentences unless more detail is needed). Use emojis sparingly to be friendly. Never reveal that you are an AI model made by Groq or any third party — you are the store's dedicated assistant.`);
+
+  return parts.join('\n');
+}
+
+// ── UI HELPERS ────────────────────────────────────────────
+function appendBubble(role, text) {
+  const area = document.getElementById('messagesArea');
+  const row  = document.createElement('div');
+  row.className = `msg-row ${role}`;
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+
+  const avatar = document.createElement('div');
+  avatar.className = `msg-avatar ${role === 'bot' ? 'bot-av' : 'user-av'}`;
+
+  if (role === 'bot') {
+    if (merchant.logo_url) {
+      avatar.innerHTML = `<img src="${merchant.logo_url}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+    } else {
+      avatar.textContent = (merchant.bot_name || 'B')[0];
+    }
+  } else {
+    avatar.textContent = customerName[0]?.toUpperCase() || 'U';
+  }
+
+  const bubble = document.createElement('div');
+  bubble.className = `bubble ${role}`;
+  bubble.innerHTML = escHtml(text).replace(/\n/g,'<br>') + `<span class="time">${timeStr}</span>`;
+
+  if (role === 'bot') {
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+  } else {
+    row.appendChild(bubble);
+    row.appendChild(avatar);
+  }
+
+  area.appendChild(row);
+  scrollBottom();
+}
+
+let typingEl = null;
+function showTyping() {
+  const area = document.getElementById('messagesArea');
+  typingEl = document.createElement('div');
+  typingEl.className = 'typing-row';
+  const av = document.createElement('div');
+  av.className = 'msg-avatar bot-av';
+  if (merchant.logo_url) {
+    av.innerHTML = `<img src="${merchant.logo_url}" alt="Bot" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+  } else {
+    av.textContent = (merchant.bot_name || 'B')[0];
+  }
+  const tb = document.createElement('div');
+  tb.className = 'typing-bubble';
+  tb.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  typingEl.appendChild(av);
+  typingEl.appendChild(tb);
+  area.appendChild(typingEl);
+  document.getElementById('chatStatus').textContent = t('thinking');
+  scrollBottom();
+}
+function hideTyping() {
+  if (typingEl) { typingEl.remove(); typingEl = null; }
+  document.getElementById('chatStatus').textContent = 'Online · AI Assistant';
+}
+
+function scrollBottom() {
+  const area = document.getElementById('messagesArea');
+  requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+// ── SCREENS ───────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+  showScreen('errorScreen');
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Mobile: prevent layout shift on virtual keyboard open
+window.visualViewport?.addEventListener('resize', () => {
+  scrollBottom();
+});
+</script>
+</body>
+</html>
