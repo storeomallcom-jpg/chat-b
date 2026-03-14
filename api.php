@@ -14,8 +14,8 @@
  */
 
 // ── CONFIG ─────────────────────────────────────────────────────────
-define('GROQ_API_KEY',  'YOUR_GROQ_API_KEY_HERE');   // 🔑 Replace this
-define('GROQ_MODEL',    'qwen-qwq-32b');              // Qwen2.5-32B via Groq
+define('GROQ_API_KEY',  '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');   // 🔑 Replace this
+define('GROQ_MODEL',    'qwen/qwen3-32b');              // Qwen2.5-32B via Groq
 define('GROQ_ENDPOINT', 'https://api.groq.com/openai/v1/chat/completions');
 define('MAX_TOKENS',    4096);
 
