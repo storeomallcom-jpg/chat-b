@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>B-Chat — Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root { --accent: #6366f1; --accent2: #a855f7; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:'DM Sans',sans-serif; background:#07080f; color:#e2e8f0; min-height:100vh; }
+  h1,h2,h3,.display { font-family:'Syne',sans-serif; }
+
+  /* ── LAYOUT ─────────────────────────────────── */
+  .app { display:flex; min-height:100vh; }
+
+  /* ── SIDEBAR ────────────────────────────────── */
+  .sidebar {
+    width: 260px; min-height: 100vh; flex-shrink: 0;
+    background: rgba(15,23,42,.9);
+    border-right: 1px solid rgba(255,255,255,.06);
+    backdrop-filter: blur(20px);
+    display: flex; flex-direction: column;
+    padding: 0 0 1.5rem; position: sticky; top: 0;
+    transition: width .3s;
+  }
+  .sidebar-logo {
+    padding: 1.5rem 1.5rem 1rem;
+    font-family:'Syne',sans-serif; font-weight:800; font-size:1.4rem;
+    background: linear-gradient(135deg,#6366f1,#a855f7);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: center; gap: .75rem;
+  }
+  .nav-items { flex:1; padding:1rem .75rem; display:flex;flex-direction:column;gap:.25rem; }
+  .nav-item {
+    display: flex; align-items: center; gap: .9rem;
+    padding: .75rem 1rem; border-radius: 12px; cursor: pointer;
+    color: #64748b; font-weight: 500; font-size: .9rem;
+    transition: all .2s;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.05); color: #94a3b8; }
+  .nav-item.active {
+    background: rgba(99,102,241,.15);
+    border-color: rgba(99,102,241,.3);
+    color: #a5b4fc;
+  }
+  .nav-item .icon { font-size: 1.2rem; width:24px; text-align:center; }
+  .sidebar-footer { padding: .75rem; border-top: 1px solid rgba(255,255,255,.06); }
+  .user-card {
+    display:flex;align-items:center;gap:.75rem;padding:.75rem;border-radius:12px;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  }
+  .user-avatar {
+    width:38px;height:38px;border-radius:50%;overflow:hidden;flex-shrink:0;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;
+  }
+  .user-avatar img { width:100%;height:100%;object-fit:cover; }
+  .user-info { flex:1;min-width:0; }
+  .user-name { font-weight:600;font-size:.85rem;color:#f1f5f9;truncate;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .user-role { font-size:.75rem;color:#475569; }
+  .logout-btn {
+    padding:.4rem .6rem;border-radius:8px;background:rgba(239,68,68,.1);
+    border:1px solid rgba(239,68,68,.2);color:#f87171;cursor:pointer;font-size:.8rem;
+    transition:all .2s;white-space:nowrap;
+  }
+  .logout-btn:hover { background:rgba(239,68,68,.2); }
+
+  /* ── MAIN ───────────────────────────────────── */
+  .main { flex:1; overflow-x:hidden; }
+  .topbar {
+    padding:1.25rem 2rem;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    background:rgba(7,8,15,.8);backdrop-filter:blur(20px);
+    position:sticky;top:0;z-index:50;
+  }
+  .topbar h1 { font-size:1.25rem;font-weight:700;color:#f1f5f9; }
+  .content { padding:2rem; max-width:1100px; }
+
+  /* ── GLASS CARD ─────────────────────────────── */
+  .glass {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    padding: 1.75rem;
+  }
+  .glass-dark {
+    background: rgba(15,23,42,.6);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    padding: 1.5rem;
+  }
+
+  /* ── FORM ELEMENTS ──────────────────────────── */
+  .form-label { display:block;font-size:.85rem;color:#94a3b8;margin-bottom:.4rem;font-weight:500; }
+  .form-input {
+    width:100%;padding:.7rem 1rem;border-radius:10px;outline:none;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    color:#f1f5f9;font-size:.9rem;font-family:'DM Sans',sans-serif;
+    transition:border-color .2s;
+  }
+  .form-input:focus { border-color:#6366f1;background:rgba(99,102,241,.08); }
+  .form-textarea {
+    width:100%;padding:.8rem 1rem;border-radius:10px;outline:none;resize:vertical;min-height:140px;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    color:#f1f5f9;font-size:.9rem;font-family:'DM Sans',sans-serif;line-height:1.6;
+    transition:border-color .2s;
+  }
+  .form-textarea:focus { border-color:#6366f1;background:rgba(99,102,241,.08); }
+
+  /* ── BUTTONS ────────────────────────────────── */
+  .btn-primary {
+    padding:.7rem 1.6rem;border-radius:10px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;
+    font-weight:600;font-size:.9rem;font-family:'DM Sans',sans-serif;
+    transition:all .25s;box-shadow:0 0 20px rgba(99,102,241,.3);
+  }
+  .btn-primary:hover { transform:translateY(-1px);box-shadow:0 0 30px rgba(99,102,241,.5); }
+  .btn-primary:disabled { opacity:.5;cursor:not-allowed;transform:none; }
+  .btn-outline {
+    padding:.7rem 1.4rem;border-radius:10px;cursor:pointer;
+    background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);
+    color:#a5b4fc;font-weight:600;font-size:.9rem;font-family:'DM Sans',sans-serif;
+    transition:all .2s;
+  }
+  .btn-outline:hover { background:rgba(99,102,241,.2); }
+  .btn-success {
+    padding:.7rem 1.4rem;border-radius:10px;cursor:pointer;
+    background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);
+    color:#6ee7b7;font-weight:600;font-size:.9rem;font-family:'DM Sans',sans-serif;
+    transition:all .2s;
+  }
+  .btn-success:hover { background:rgba(16,185,129,.25); }
+
+  /* ── TABS ───────────────────────────────────── */
+  .tabs { display:flex;gap:.25rem;margin-bottom:1.5rem;flex-wrap:wrap; }
+  .tab {
+    padding:.5rem 1.1rem;border-radius:10px;cursor:pointer;
+    font-size:.875rem;font-weight:600;color:#64748b;
+    border:1px solid transparent;transition:all .2s;
+  }
+  .tab:hover { color:#94a3b8;background:rgba(255,255,255,.04); }
+  .tab.active { background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.3);color:#a5b4fc; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* ── STAT CARDS ─────────────────────────────── */
+  .stat-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem; }
+  .stat-card {
+    padding:1.5rem;border-radius:16px;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  }
+  .stat-card .s-label { font-size:.8rem;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem; }
+  .stat-card .s-value { font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:#f1f5f9; }
+  .stat-card .s-sub { font-size:.8rem;color:#64748b;margin-top:.2rem; }
+
+  /* ── PROGRESS BAR ───────────────────────────── */
+  .progress-track { width:100%;height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.75rem; }
+  .progress-fill { height:100%;border-radius:4px;background:linear-gradient(90deg,#6366f1,#a855f7);transition:width .5s ease; }
+
+  /* ── LOGO UPLOAD ────────────────────────────── */
+  .logo-upload-area {
+    border:2px dashed rgba(99,102,241,.3);border-radius:16px;padding:2rem;
+    text-align:center;cursor:pointer;transition:all .2s;
+    background:rgba(99,102,241,.05);
+  }
+  .logo-upload-area:hover { border-color:rgba(99,102,241,.6);background:rgba(99,102,241,.1); }
+  .logo-preview { width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid rgba(99,102,241,.4); }
+
+  /* ── COLOR PICKER ───────────────────────────── */
+  .color-swatch {
+    width:36px;height:36px;border-radius:8px;cursor:pointer;
+    border:2px solid transparent;transition:all .2s;
+  }
+  .color-swatch.selected { border-color:#fff;transform:scale(1.15); }
+  #customColorPicker { -webkit-appearance:none;appearance:none;width:36px;height:36px;border:none;
+    border-radius:8px;cursor:pointer;padding:0;background:none; }
+  #customColorPicker::-webkit-color-swatch-wrapper { padding:0; }
+  #customColorPicker::-webkit-color-swatch { border:2px solid rgba(255,255,255,.2);border-radius:6px; }
+
+  /* ── DEPLOY LINK ────────────────────────────── */
+  .link-box {
+    display:flex;align-items:center;gap:.75rem;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+    border-radius:12px;padding:.75rem 1rem;
+  }
+  .link-box .link-url { flex:1;font-size:.85rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+  /* ── ALERT ──────────────────────────────────── */
+  .alert { padding:.85rem 1rem;border-radius:10px;font-size:.875rem;margin-bottom:1rem; }
+  .alert-success { background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#6ee7b7; }
+  .alert-error   { background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:#fca5a5; }
+  .alert-info    { background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#a5b4fc; }
+
+  /* ── TOASTER ────────────────────────────────── */
+  .toaster {
+    position:fixed;top:1.5rem;right:1.5rem;z-index:9999;
+    display:flex;flex-direction:column;gap:.5rem;
+  }
+  .toast {
+    padding:.75rem 1.25rem;border-radius:12px;font-size:.875rem;font-weight:500;
+    background:rgba(16,185,129,.9);color:#fff;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+    animation:toastIn .3s ease;
+  }
+  .toast.error { background:rgba(239,68,68,.9); }
+  @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+  /* ── RESPONSIVE ─────────────────────────────── */
+  @media(max-width:768px) {
+    .sidebar { width:100%;min-height:auto;flex-direction:row;align-items:center;position:sticky;flex-shrink:1;border-right:none;border-bottom:1px solid rgba(255,255,255,.06); }
+    .sidebar-logo { border-bottom:none;padding:1rem; }
+    .nav-items { flex-direction:row;flex:1;padding:.5rem;overflow-x:auto;gap:.15rem; }
+    .nav-item span.label { display:none; }
+    .nav-item { padding:.6rem; }
+    .sidebar-footer { display:none; }
+    .app { flex-direction:column; }
+    .main { width:100%; }
+    .content { padding:1rem; }
+    .topbar { padding:1rem; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
+
+  /* Grid helpers */
+  .grid-2 { display:grid;grid-template-columns:1fr 1fr;gap:1.25rem; }
+  @media(max-width:600px) { .grid-2 { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div class="toaster" id="toaster"></div>
+
+<div class="app">
+  <!-- ── SIDEBAR ─────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span>⚡</span>
+      <span>B-Chat</span>
+    </div>
+    <nav class="nav-items">
+      <div class="nav-item active" onclick="showTab('customize')" id="nav-customize">
+        <span class="icon">🎨</span><span class="label" data-i18n="tab_custom">Customize</span>
+      </div>
+      <div class="nav-item" onclick="showTab('brain')" id="nav-brain">
+        <span class="icon">🧠</span><span class="label" data-i18n="tab_brain">Brain</span>
+      </div>
+      <div class="nav-item" onclick="showTab('analytics')" id="nav-analytics">
+        <span class="icon">📊</span><span class="label" data-i18n="tab_analytics">Analytics</span>
+      </div>
+      <div class="nav-item" onclick="showTab('deploy')" id="nav-deploy">
+        <span class="icon">🔗</span><span class="label" data-i18n="tab_deploy">Deploy</span>
+      </div>
+      <div class="nav-item" onclick="showTab('billing')" id="nav-billing">
+        <span class="icon">💳</span><span class="label" data-i18n="tab_billing">Billing</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="sidebarAvatar">U</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebarName">Loading...</div>
+          <div class="user-role">Merchant</div>
+        </div>
+        <button class="logout-btn" onclick="doLogout()" data-i18n="logout">Out</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ───────────────────────────────────────── -->
+  <main class="main">
+    <div class="topbar">
+      <h1 id="tabTitle" data-i18n="tab_custom">Customize</h1>
+      <div style="display:flex;align-items:center;gap:.75rem;">
+        <select style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#94a3b8;border-radius:8px;padding:.3rem .6rem;font-size:.8rem;cursor:pointer;outline:none;" onchange="setLang(this.value)" id="langSelect">
+          <option value="en">🇬🇧 EN</option>
+          <option value="ar">🇸🇦 AR</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="es">🇪🇸 ES</option>
+          <option value="de">🇩🇪 DE</option>
+          <option value="sv">🇸🇪 SV</option>
+        </select>
+        <button class="logout-btn" onclick="doLogout()" data-i18n="logout">Logout</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── TAB: CUSTOMIZE ─────────────────────────── -->
+      <div class="tab-content active" id="tab-customize">
+        <div class="glass" style="margin-bottom:1.5rem;">
+          <h2 style="font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-bottom:1.5rem;">🎨 <span data-i18n="tab_custom">Customize</span> Your Brand</h2>
+
+          <!-- Logo Upload -->
+          <div style="margin-bottom:1.5rem;">
+            <label class="form-label" data-i18n="logo">Store Logo</label>
+            <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+              <div id="logoPreviewWrap" style="display:none;">
+                <img id="logoPreviewImg" class="logo-preview" src="" alt="Logo"/>
+              </div>
+              <div>
+                <label class="logo-upload-area" for="logoFileInput" style="display:block;min-width:200px;">
+                  <div style="font-size:2rem;margin-bottom:.5rem;">📷</div>
+                  <div style="font-size:.875rem;color:#94a3b8;" data-i18n="upload_logo">Upload Logo</div>
+                  <div style="font-size:.75rem;color:#475569;margin-top:.25rem;">PNG, JPG, SVG · Max 2MB</div>
+                </label>
+                <input type="file" id="logoFileInput" accept="image/*" style="display:none;" onchange="handleLogoChange(event)"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- Store Name -->
+            <div>
+              <label class="form-label" data-i18n="store_name_label">Store Name</label>
+              <input class="form-input" type="text" id="storeName" placeholder="My Store"/>
+            </div>
+            <!-- Bot Name -->
+            <div>
+              <label class="form-label" data-i18n="bot_name">Bot Name</label>
+              <input class="form-input" type="text" id="botName" placeholder="B-Chat Assistant"/>
+            </div>
+          </div>
+
+          <!-- Bio -->
+          <div style="margin-top:1.25rem;">
+            <label class="form-label" data-i18n="bio">Store Description</label>
+            <input class="form-input" type="text" id="storeBio" data-i18n-placeholder="bio_placeholder" placeholder="Brief description of your store..."/>
+          </div>
+
+          <!-- Theme Color -->
+          <div style="margin-top:1.25rem;">
+            <label class="form-label" data-i18n="theme_color">Brand Color</label>
+            <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+              <div class="color-swatch" style="background:#6366f1;" onclick="selectColor('#6366f1',this)" data-color="#6366f1"></div>
+              <div class="color-swatch" style="background:#a855f7;" onclick="selectColor('#a855f7',this)" data-color="#a855f7"></div>
+              <div class="color-swatch" style="background:#ec4899;" onclick="selectColor('#ec4899',this)" data-color="#ec4899"></div>
+              <div class="color-swatch" style="background:#10b981;" onclick="selectColor('#10b981',this)" data-color="#10b981"></div>
+              <div class="color-swatch" style="background:#f59e0b;" onclick="selectColor('#f59e0b',this)" data-color="#f59e0b"></div>
+              <div class="color-swatch" style="background:#3b82f6;" onclick="selectColor('#3b82f6',this)" data-color="#3b82f6"></div>
+              <div class="color-swatch" style="background:#ef4444;" onclick="selectColor('#ef4444',this)" data-color="#ef4444"></div>
+              <input type="color" id="customColorPicker" value="#6366f1" oninput="selectColor(this.value,null)" title="Custom Color"/>
+            </div>
+          </div>
+
+          <div style="margin-top:1.75rem;display:flex;gap:.75rem;">
+            <button class="btn-primary" onclick="saveCustomize()" id="saveCustomizeBtn" data-i18n="save">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: BRAIN ──────────────────────────────── -->
+      <div class="tab-content" id="tab-brain">
+        <div class="glass">
+          <h2 style="font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-bottom:.5rem;">🧠 <span data-i18n="tab_brain">Brain</span></h2>
+          <p style="font-size:.875rem;color:#64748b;margin-bottom:1.5rem;">Everything in "Products & Info" becomes your bot's knowledge. "Custom Instructions" shapes its personality and behavior.</p>
+
+          <div style="margin-bottom:1.5rem;">
+            <label class="form-label" data-i18n="products_info">Products & Info</label>
+            <textarea class="form-textarea" id="productsInfo" style="min-height:220px;" data-i18n-placeholder="products_placeholder" placeholder="List your products, services, prices, policies..."></textarea>
+            <p style="font-size:.75rem;color:#475569;margin-top:.4rem;">💡 Be as detailed as possible. Include prices, features, FAQs, return policy, delivery times, etc.</p>
+          </div>
+
+          <div style="margin-bottom:1.5rem;">
+            <label class="form-label" data-i18n="custom_prompt">Custom Behavior Instructions</label>
+            <textarea class="form-textarea" id="customPrompt" style="min-height:140px;" data-i18n-placeholder="prompt_placeholder" placeholder="e.g. Always respond in Arabic. Be friendly. Focus on selling X."></textarea>
+            <p style="font-size:.75rem;color:#475569;margin-top:.4rem;">💡 Examples: "Always respond in the customer's language", "Ask for the customer's phone number before answering", "Never discuss competitors".</p>
+          </div>
+
+          <button class="btn-primary" onclick="saveBrain()" id="saveBrainBtn" data-i18n="save">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- ── TAB: ANALYTICS ──────────────────────────── -->
+      <div class="tab-content" id="tab-analytics">
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="s-label" data-i18n="msgs_left">Messages Left</div>
+            <div class="s-value" id="statsMessages">—</div>
+            <div class="progress-track"><div class="progress-fill" id="msgProgress" style="width:100%"></div></div>
+            <div class="s-sub">out of 1,000</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label" data-i18n="days_left">Days Left</div>
+            <div class="s-value" id="statsDays">—</div>
+            <div class="progress-track"><div class="progress-fill" id="daysProgress" style="width:100%;background:linear-gradient(90deg,#10b981,#059669)"></div></div>
+            <div class="s-sub" id="subExpires">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">Total Conversations</div>
+            <div class="s-value" id="statsConvs">—</div>
+            <div class="s-sub">All time</div>
+          </div>
+        </div>
+
+        <div class="glass">
+          <h3 style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1.25rem;">📈 Usage Overview</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="glass-dark">
+              <div style="font-size:.8rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;">Message Balance</div>
+              <div style="display:flex;align-items:baseline;gap:.3rem;">
+                <span style="font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;color:#a5b4fc;" id="balanceBig">—</span>
+                <span style="font-size:.8rem;color:#475569;">/ 1000</span>
+              </div>
+            </div>
+            <div class="glass-dark">
+              <div style="font-size:.8rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;">Subscription Ends</div>
+              <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;color:#6ee7b7;" id="subEndBig">—</div>
+            </div>
+          </div>
+
+          <div style="margin-top:1.25rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+              <span style="font-size:.85rem;color:#94a3b8;">Message Usage</span>
+              <span style="font-size:.85rem;color:#a5b4fc;" id="usagePercent">0%</span>
+            </div>
+            <div class="progress-track" style="height:10px;">
+              <div class="progress-fill" id="usageBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: DEPLOY ─────────────────────────────── -->
+      <div class="tab-content" id="tab-deploy">
+        <div class="glass">
+          <h2 style="font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-bottom:.5rem;">🔗 Deploy Your Bot</h2>
+          <p style="font-size:.875rem;color:#64748b;margin-bottom:1.75rem;">Share your unique chat link anywhere — Instagram bio, website, WhatsApp, email signatures.</p>
+
+          <div style="margin-bottom:1.5rem;">
+            <label class="form-label" data-i18n="copy_link">Your Chat Link</label>
+            <div class="link-box">
+              <span class="link-url" id="chatLinkUrl">Loading...</span>
+              <button class="btn-outline" onclick="copyLink()" id="copyLinkBtn" data-i18n="copy_link">Copy My Link</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:1.5rem;">
+            <label class="form-label">Embed Code</label>
+            <div class="link-box" style="flex-direction:column;align-items:flex-start;gap:.75rem;">
+              <code id="embedCode" style="font-size:.75rem;color:#94a3b8;word-break:break-all;line-height:1.6;background:rgba(0,0,0,.3);padding:.75rem;border-radius:8px;width:100%;"></code>
+              <button class="btn-outline" onclick="copyEmbed()" style="font-size:.8rem;padding:.5rem 1rem;">Copy Embed Code</button>
+            </div>
+          </div>
+
+          <div class="alert alert-info">
+            💡 <strong>Pro tip:</strong> Add this link to your Instagram bio, WhatsApp Business auto-reply, or any website button to start getting AI-powered conversations instantly.
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: BILLING ────────────────────────────── -->
+      <div class="tab-content" id="tab-billing">
+        <div class="glass" style="margin-bottom:1.5rem;">
+          <h2 style="font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-bottom:.5rem;">💳 <span data-i18n="tab_billing">Billing</span></h2>
+          <p style="font-size:.875rem;color:#64748b;margin-bottom:1.75rem;">Redeem an activation code to top up your message balance by 1,000 messages.</p>
+
+          <div style="display:flex;gap:.75rem;max-width:480px;">
+            <input class="form-input" type="text" id="activationCode" data-i18n-placeholder="redeem_placeholder" placeholder="Enter activation code" style="text-transform:uppercase;"/>
+            <button class="btn-success" onclick="redeemCode()" id="redeemBtn" data-i18n="redeem_code" style="white-space:nowrap;">Redeem Code</button>
+          </div>
+          <div id="redeemMsg" style="margin-top:.75rem;"></div>
+        </div>
+
+        <div class="glass">
+          <h3 style="font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1rem;">Current Balance</h3>
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="font-family:'Syne',sans-serif;font-size:3rem;font-weight:800;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;" id="billingBalance">—</div>
+              <div style="font-size:.8rem;color:#475569;" data-i18n="msgs_left">messages left</div>
+            </div>
+            <div style="flex:1;min-width:200px;">
+              <div class="progress-track" style="height:12px;">
+                <div class="progress-fill" id="billingProgress"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:.4rem;font-size:.75rem;color:#475569;">
+                <span>0</span><span>1,000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<script>
+const sb = createSupabase();
+let profile = null;
+let userId  = null;
+let selectedColor = '#6366f1';
+let pendingLogoFile = null;
+
+const TAB_TITLES = {
+  customize: 'tab_custom',
+  brain:     'tab_brain',
+  analytics: 'tab_analytics',
+  deploy:    'tab_deploy',
+  billing:   'tab_billing',
+};
+
+// ── INIT ─────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const lang = getLang();
+  document.getElementById('langSelect').value = lang;
+  applyLang(lang);
+  document.getElementById('langSelect').addEventListener('change', function(){ setLang(this.value); applyLang(this.value); });
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  userId = session.user.id;
+
+  await loadProfile();
+  populateForms();
+  loadAnalytics();
+  setupDeployTab();
+});
+
+// ── LOAD PROFILE ─────────────────────────────────────────
+async function loadProfile() {
+  const { data, error } = await sb.from('profiles').select('*').eq('id', userId).single();
+  if (error || !data) { showToast('Failed to load profile', true); return; }
+  profile = data;
+}
+
+// ── POPULATE FORMS ────────────────────────────────────────
+function populateForms() {
+  if (!profile) return;
+  document.getElementById('storeName').value   = profile.store_name || '';
+  document.getElementById('botName').value     = profile.bot_name   || '';
+  document.getElementById('storeBio').value    = profile.bio        || '';
+  document.getElementById('productsInfo').value = profile.products_info || '';
+  document.getElementById('customPrompt').value = profile.custom_prompt || '';
+
+  // Logo
+  if (profile.logo_url) {
+    document.getElementById('logoPreviewImg').src = profile.logo_url;
+    document.getElementById('logoPreviewWrap').style.display = 'block';
+    const av = document.getElementById('sidebarAvatar');
+    av.innerHTML = `<img src="${profile.logo_url}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+  }
+
+  // Color
+  selectedColor = profile.theme_color || '#6366f1';
+  document.getElementById('customColorPicker').value = selectedColor;
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.classList.toggle('selected', sw.dataset.color === selectedColor);
+  });
+
+  // Sidebar name
+  document.getElementById('sidebarName').textContent = profile.store_name || 'My Store';
+}
+
+// ── SHOW TAB ──────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  document.getElementById(`nav-${name}`).classList.add('active');
+  document.getElementById('tabTitle').setAttribute('data-i18n', TAB_TITLES[name]);
+  document.getElementById('tabTitle').textContent = t(TAB_TITLES[name]);
+  if (name === 'analytics') loadAnalytics();
+  if (name === 'deploy')    setupDeployTab();
+}
+
+// ── COLOR PICKER ──────────────────────────────────────────
+function selectColor(color, el) {
+  selectedColor = color;
+  document.getElementById('customColorPicker').value = color;
+  document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+}
+
+// ── LOGO CHANGE ───────────────────────────────────────────
+function handleLogoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('File too large. Max 2MB.', true); return; }
+  pendingLogoFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('logoPreviewImg').src = e.target.result;
+    document.getElementById('logoPreviewWrap').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── SAVE CUSTOMIZE ────────────────────────────────────────
+async function saveCustomize() {
+  const btn = document.getElementById('saveCustomizeBtn');
+  btn.textContent = '...'; btn.disabled = true;
+
+  let logoUrl = profile.logo_url;
+
+  // Upload logo if changed
+  if (pendingLogoFile) {
+    const ext  = pendingLogoFile.name.split('.').pop();
+    const path = `${userId}/logo.${ext}`;
+    const { error: upErr } = await sb.storage.from('logos').upload(path, pendingLogoFile, { upsert: true });
+    if (!upErr) {
+      const { data: urlData } = sb.storage.from('logos').getPublicUrl(path);
+      logoUrl = urlData.publicUrl;
+    }
+  }
+
+  const updates = {
+    store_name:  document.getElementById('storeName').value.trim(),
+    bot_name:    document.getElementById('botName').value.trim(),
+    bio:         document.getElementById('storeBio').value.trim(),
+    theme_color: selectedColor,
+    logo_url:    logoUrl,
+  };
+
+  const { error } = await sb.from('profiles').update(updates).eq('id', userId);
+  btn.textContent = t('save'); btn.disabled = false;
+
+  if (error) { showToast('Failed to save. Try again.', true); return; }
+  profile = { ...profile, ...updates };
+  document.getElementById('sidebarName').textContent = updates.store_name;
+  showToast(t('saved'));
+  pendingLogoFile = null;
+}
+
+// ── SAVE BRAIN ────────────────────────────────────────────
+async function saveBrain() {
+  const btn = document.getElementById('saveBrainBtn');
+  btn.textContent = '...'; btn.disabled = true;
+
+  const updates = {
+    products_info: document.getElementById('productsInfo').value,
+    custom_prompt: document.getElementById('customPrompt').value,
+  };
+
+  const { error } = await sb.from('profiles').update(updates).eq('id', userId);
+  btn.textContent = t('save'); btn.disabled = false;
+
+  if (error) { showToast('Failed to save brain.', true); return; }
+  profile = { ...profile, ...updates };
+  showToast(t('saved'));
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────
+async function loadAnalytics() {
+  if (!profile) await loadProfile();
+  if (!profile) return;
+
+  const balance  = profile.message_balance || 0;
+  const subEnd   = new Date(profile.sub_end_date);
+  const now      = new Date();
+  const diffMs   = subEnd - now;
+  const daysLeft = Math.max(0, Math.ceil(diffMs / 86400000));
+  const pctMsg   = Math.min(100, (balance / 1000) * 100);
+  const pctDays  = Math.min(100, (daysLeft / 30) * 100);
+
+  document.getElementById('statsMessages').textContent = balance.toLocaleString();
+  document.getElementById('statsDays').textContent     = daysLeft;
+  document.getElementById('msgProgress').style.width   = pctMsg + '%';
+  document.getElementById('daysProgress').style.width  = pctDays + '%';
+  document.getElementById('subExpires').textContent    = `${t('sub_expires')}: ${subEnd.toLocaleDateString()}`;
+  document.getElementById('balanceBig').textContent    = balance.toLocaleString();
+  document.getElementById('subEndBig').textContent     = subEnd.toLocaleDateString();
+  document.getElementById('usagePercent').textContent  = Math.round(100 - pctMsg) + '% used';
+  document.getElementById('usageBar').style.width      = (100 - pctMsg) + '%';
+
+  // Conversation count
+  const { count } = await sb.from('conversations').select('*', { count:'exact', head:true }).eq('merchant_id', userId);
+  document.getElementById('statsConvs').textContent = (count || 0).toLocaleString();
+}
+
+// ── DEPLOY TAB ────────────────────────────────────────────
+function setupDeployTab() {
+  const chatUrl  = `${BCHAT_CONFIG.BASE_URL}/chat.html?id=${userId}`;
+  const embedCode = `<a href="${chatUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:#6366f1;color:#fff;border-radius:12px;text-decoration:none;font-weight:600;">💬 Chat with us</a>`;
+  document.getElementById('chatLinkUrl').textContent = chatUrl;
+  document.getElementById('embedCode').textContent   = embedCode;
+}
+
+async function copyLink() {
+  const url = `${BCHAT_CONFIG.BASE_URL}/chat.html?id=${userId}`;
+  await navigator.clipboard.writeText(url).catch(() => {});
+  const btn = document.getElementById('copyLinkBtn');
+  btn.textContent = t('copied');
+  setTimeout(() => btn.textContent = t('copy_link'), 2000);
+  showToast(t('copied'));
+}
+
+async function copyEmbed() {
+  const code = document.getElementById('embedCode').textContent;
+  await navigator.clipboard.writeText(code).catch(() => {});
+  showToast(t('copied'));
+}
+
+// ── REDEEM CODE ───────────────────────────────────────────
+async function redeemCode() {
+  const code = document.getElementById('activationCode').value.trim().toUpperCase();
+  if (!code) return;
+  const btn = document.getElementById('redeemBtn');
+  btn.textContent = '...'; btn.disabled = true;
+
+  const { data: codeRow, error: codeErr } = await sb
+    .from('activation_codes')
+    .select('*')
+    .eq('code', code)
+    .eq('is_used', false)
+    .single();
+
+  if (codeErr || !codeRow) {
+    showRedeemMsg('Invalid or already used code.', true);
+    btn.textContent = t('redeem_code'); btn.disabled = false;
+    return;
+  }
+
+  // Mark as used
+  await sb.from('activation_codes').update({ is_used: true, used_by: userId, used_at: new Date().toISOString() }).eq('id', codeRow.id);
+
+  // Add messages
+  const newBalance = (profile.message_balance || 0) + codeRow.message_amount;
+  const { error: updateErr } = await sb.from('profiles').update({ message_balance: newBalance }).eq('id', userId);
+
+  btn.textContent = t('redeem_code'); btn.disabled = false;
+
+  if (updateErr) { showRedeemMsg('Failed to apply code.', true); return; }
+  profile.message_balance = newBalance;
+  document.getElementById('billingBalance').textContent = newBalance.toLocaleString();
+  document.getElementById('billingProgress').style.width = Math.min(100, (newBalance / 1000) * 100) + '%';
+  showRedeemMsg(`✅ +${codeRow.message_amount.toLocaleString()} messages added! New balance: ${newBalance.toLocaleString()}`, false);
+  document.getElementById('activationCode').value = '';
+  loadAnalytics();
+}
+
+function showRedeemMsg(msg, isError) {
+  const el = document.getElementById('redeemMsg');
+  el.className = `alert ${isError ? 'alert-error' : 'alert-success'}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// Update billing tab balance on load
+async function updateBillingDisplay() {
+  if (!profile) return;
+  const bal = profile.message_balance || 0;
+  document.getElementById('billingBalance').textContent = bal.toLocaleString();
+  document.getElementById('billingProgress').style.width = Math.min(100,(bal/1000)*100) + '%';
+}
+
+// ── LOGOUT ────────────────────────────────────────────────
+async function doLogout() {
+  await sb.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const el = document.createElement('div');
+  el.className = `toast${isError ? ' error' : ''}`;
+  el.textContent = msg;
+  document.getElementById('toaster').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// Load billing display when switching to billing tab
+document.getElementById('nav-billing').addEventListener('click', updateBillingDisplay);
+</script>
+</body>
+</html>
